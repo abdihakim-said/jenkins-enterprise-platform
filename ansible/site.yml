@@ -1,0 +1,116 @@
+---
+# Jenkins Enterprise Platform - Main Site Playbook
+# Orchestrates the complete Jenkins Master configuration
+# Version: 2.0
+# Date: 2025-08-18
+
+- name: Configure Jenkins Enterprise Platform
+  hosts: jenkins_masters
+  become: yes
+  gather_facts: yes
+  
+  vars:
+    # Default variables (can be overridden)
+    java_version: "{{ java_version | default('17') }}"
+    jenkins_version: "{{ jenkins_version | default('2.516.1') }}"
+    environment: "{{ environment | default('staging') }}"
+    project_name: "{{ project_name | default('jenkins-enterprise-platform') }}"
+    
+  pre_tasks:
+    - name: Update package cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      tags: ['always']
+    
+    - name: Gather system information
+      setup:
+        gather_subset:
+          - 'all'
+      tags: ['always']
+    
+    - name: Display system information
+      debug:
+        msg: |
+          System: {{ ansible_distribution }} {{ ansible_distribution_version }}
+          Architecture: {{ ansible_architecture }}
+          Memory: {{ ansible_memtotal_mb }}MB
+          CPU Cores: {{ ansible_processor_vcpus }}
+          Java Version: {{ java_version }}
+          Jenkins Version: {{ jenkins_version }}
+          Environment: {{ environment }}
+      tags: ['always']
+  
+  roles:
+    - role: jenkins-master
+      tags: ['jenkins', 'master']
+  
+  post_tasks:
+    - name: Verify Jenkins installation
+      uri:
+        url: "http://localhost:8080/login"
+        method: GET
+        status_code: [200, 403]
+      register: jenkins_check
+      retries: 5
+      delay: 10
+      tags: ['verification']
+    
+    - name: Display Jenkins status
+      debug:
+        msg: |
+          Jenkins Status: {{ 'Running' if jenkins_check.status in [200, 403] else 'Not Running' }}
+          Jenkins URL: http://{{ ansible_default_ipv4.address }}:8080
+          Initial Admin Password: Check /var/lib/jenkins/secrets/initialAdminPassword
+      tags: ['verification']
+    
+    - name: Create deployment summary
+      template:
+        src: deployment-summary.j2
+        dest: /var/lib/jenkins/deployment-summary.json
+        owner: jenkins
+        group: jenkins
+        mode: '0644'
+      tags: ['summary']
+
+# Separate play for security hardening
+- name: Apply Security Hardening
+  hosts: jenkins_masters
+  become: yes
+  gather_facts: no
+  
+  tasks:
+    - name: Include security hardening playbook
+      include: playbooks/jenkins-hardening-playbook.yml
+      tags: ['security', 'hardening']
+
+# Separate play for monitoring setup
+- name: Configure Monitoring
+  hosts: jenkins_masters
+  become: yes
+  gather_facts: no
+  
+  tasks:
+    - name: Ensure CloudWatch agent is configured
+      systemd:
+        name: amazon-cloudwatch-agent
+        state: started
+        enabled: yes
+      tags: ['monitoring']
+    
+    - name: Ensure Prometheus Node Exporter is running
+      systemd:
+        name: prometheus-node-exporter
+        state: started
+        enabled: yes
+      tags: ['monitoring']
+    
+    - name: Verify monitoring endpoints
+      uri:
+        url: "http://localhost:{{ item }}"
+        method: GET
+        status_code: 200
+      loop:
+        - 9100  # Node Exporter
+      ignore_errors: yes
+      tags: ['monitoring', 'verification']

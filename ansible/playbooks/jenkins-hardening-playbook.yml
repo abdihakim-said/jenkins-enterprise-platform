@@ -1,0 +1,284 @@
+---
+- name: Jenkins Enterprise Platform - Security Hardening Playbook
+  hosts: all
+  become: yes
+  vars:
+    jenkins_user: jenkins
+    jenkins_home: /var/lib/jenkins
+    security_baseline_version: "2.0"
+    
+  tasks:
+    - name: Update system packages
+      apt:
+        update_cache: yes
+        upgrade: dist
+        autoremove: yes
+        autoclean: yes
+
+    - name: Install security packages
+      apt:
+        name:
+          - fail2ban
+          - rkhunter
+          - chkrootkit
+          - aide
+          - auditd
+          - apparmor
+          - apparmor-utils
+        state: present
+
+    - name: Configure fail2ban for SSH protection
+      copy:
+        content: |
+          [DEFAULT]
+          bantime = 3600
+          findtime = 600
+          maxretry = 3
+          
+          [sshd]
+          enabled = true
+          port = ssh
+          filter = sshd
+          logpath = /var/log/auth.log
+          maxretry = 3
+          bantime = 3600
+        dest: /etc/fail2ban/jail.local
+        owner: root
+        group: root
+        mode: '0644'
+      notify: restart fail2ban
+
+    - name: Configure SSH hardening
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+        backup: yes
+      loop:
+        - { regexp: '^#?PermitRootLogin', line: 'PermitRootLogin no' }
+        - { regexp: '^#?PasswordAuthentication', line: 'PasswordAuthentication no' }
+        - { regexp: '^#?PubkeyAuthentication', line: 'PubkeyAuthentication yes' }
+        - { regexp: '^#?AuthorizedKeysFile', line: 'AuthorizedKeysFile .ssh/authorized_keys' }
+        - { regexp: '^#?PermitEmptyPasswords', line: 'PermitEmptyPasswords no' }
+        - { regexp: '^#?X11Forwarding', line: 'X11Forwarding no' }
+        - { regexp: '^#?MaxAuthTries', line: 'MaxAuthTries 3' }
+        - { regexp: '^#?ClientAliveInterval', line: 'ClientAliveInterval 300' }
+        - { regexp: '^#?ClientAliveCountMax', line: 'ClientAliveCountMax 2' }
+        - { regexp: '^#?Protocol', line: 'Protocol 2' }
+      notify: restart ssh
+
+    - name: Set kernel parameters for security
+      sysctl:
+        name: "{{ item.name }}"
+        value: "{{ item.value }}"
+        state: present
+        reload: yes
+      loop:
+        - { name: 'net.ipv4.ip_forward', value: '0' }
+        - { name: 'net.ipv4.conf.all.send_redirects', value: '0' }
+        - { name: 'net.ipv4.conf.default.send_redirects', value: '0' }
+        - { name: 'net.ipv4.conf.all.accept_redirects', value: '0' }
+        - { name: 'net.ipv4.conf.default.accept_redirects', value: '0' }
+        - { name: 'net.ipv4.conf.all.secure_redirects', value: '0' }
+        - { name: 'net.ipv4.conf.default.secure_redirects', value: '0' }
+        - { name: 'net.ipv4.icmp_echo_ignore_broadcasts', value: '1' }
+        - { name: 'net.ipv4.icmp_ignore_bogus_error_responses', value: '1' }
+        - { name: 'net.ipv4.conf.all.log_martians', value: '1' }
+        - { name: 'net.ipv4.conf.default.log_martians', value: '1' }
+        - { name: 'kernel.randomize_va_space', value: '2' }
+
+    - name: Configure file permissions for Jenkins
+      file:
+        path: "{{ item.path }}"
+        owner: "{{ item.owner }}"
+        group: "{{ item.group }}"
+        mode: "{{ item.mode }}"
+        state: directory
+      loop:
+        - { path: "{{ jenkins_home }}", owner: "{{ jenkins_user }}", group: "{{ jenkins_user }}", mode: '0755' }
+        - { path: "{{ jenkins_home }}/secrets", owner: "{{ jenkins_user }}", group: "{{ jenkins_user }}", mode: '0700' }
+        - { path: "{{ jenkins_home }}/logs", owner: "{{ jenkins_user }}", group: "{{ jenkins_user }}", mode: '0755' }
+        - { path: "/var/log/jenkins", owner: "{{ jenkins_user }}", group: "{{ jenkins_user }}", mode: '0755' }
+
+    - name: Configure Jenkins security settings
+      copy:
+        content: |
+          # Jenkins Security Configuration
+          # Disable CLI over remoting
+          jenkins.CLI.get().setEnabled(false)
+          
+          # Configure CSRF protection
+          import hudson.security.csrf.DefaultCrumbIssuer
+          import jenkins.model.Jenkins
+          
+          def instance = Jenkins.instance
+          instance.setCrumbIssuer(new DefaultCrumbIssuer(true))
+          instance.save()
+          
+          # Disable usage statistics
+          import jenkins.model.Jenkins
+          Jenkins.instance.setNoUsageStatistics(true)
+          
+          # Configure agent protocols
+          import jenkins.model.Jenkins
+          Jenkins.instance.setSlaveAgentPort(-1)
+          
+          println "Jenkins security configuration applied"
+        dest: "{{ jenkins_home }}/init.groovy.d/security.groovy"
+        owner: "{{ jenkins_user }}"
+        group: "{{ jenkins_user }}"
+        mode: '0644'
+
+    - name: Configure Jenkins JVM security options
+      lineinfile:
+        path: /etc/systemd/system/jenkins.service.d/override.conf
+        regexp: '^Environment="JAVA_OPTS='
+        line: 'Environment="JAVA_OPTS=-Djava.awt.headless=true -Xmx4g -Xms2g -XX:+UseG1GC -XX:+UseStringDeduplication -Djava.security.egd=file:/dev/./urandom"'
+        create: yes
+        backup: yes
+
+    - name: Configure audit logging
+      copy:
+        content: |
+          # Jenkins audit rules
+          -w {{ jenkins_home }} -p wa -k jenkins_home
+          -w /etc/systemd/system/jenkins.service -p wa -k jenkins_service
+          -w /var/log/jenkins -p wa -k jenkins_logs
+          -a always,exit -F arch=b64 -S execve -F path=/usr/bin/java -k jenkins_java
+        dest: /etc/audit/rules.d/jenkins.rules
+        owner: root
+        group: root
+        mode: '0640'
+      notify: restart auditd
+
+    - name: Configure log rotation for security logs
+      copy:
+        content: |
+          /var/log/fail2ban.log {
+              daily
+              missingok
+              rotate 52
+              compress
+              delaycompress
+              notifempty
+              postrotate
+                  systemctl reload fail2ban > /dev/null 2>&1 || true
+              endscript
+          }
+          
+          /var/log/audit/audit.log {
+              daily
+              missingok
+              rotate 52
+              compress
+              delaycompress
+              notifempty
+              postrotate
+                  systemctl reload auditd > /dev/null 2>&1 || true
+              endscript
+          }
+        dest: /etc/logrotate.d/security
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Create security monitoring script
+      copy:
+        content: |
+          #!/bin/bash
+          # Jenkins Security Monitoring Script
+          
+          LOG_FILE="/var/log/jenkins-security-monitor.log"
+          DATE=$(date '+%Y-%m-%d %H:%M:%S')
+          
+          echo "[$DATE] Starting security monitoring check..." >> $LOG_FILE
+          
+          # Check for failed login attempts
+          FAILED_LOGINS=$(grep "Failed password" /var/log/auth.log | wc -l)
+          if [ $FAILED_LOGINS -gt 10 ]; then
+              echo "[$DATE] WARNING: $FAILED_LOGINS failed login attempts detected" >> $LOG_FILE
+          fi
+          
+          # Check Jenkins process
+          if ! pgrep -f jenkins > /dev/null; then
+              echo "[$DATE] CRITICAL: Jenkins process not running" >> $LOG_FILE
+          fi
+          
+          # Check disk usage
+          DISK_USAGE=$(df / | awk 'NR==2 {print $5}' | sed 's/%//')
+          if [ $DISK_USAGE -gt 85 ]; then
+              echo "[$DATE] WARNING: Disk usage at $DISK_USAGE%" >> $LOG_FILE
+          fi
+          
+          # Check memory usage
+          MEM_USAGE=$(free | awk '/Mem:/ {printf "%.0f", $3/$2 * 100.0}')
+          if [ $MEM_USAGE -gt 85 ]; then
+              echo "[$DATE] WARNING: Memory usage at $MEM_USAGE%" >> $LOG_FILE
+          fi
+          
+          echo "[$DATE] Security monitoring check completed" >> $LOG_FILE
+        dest: /usr/local/bin/jenkins-security-monitor.sh
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Schedule security monitoring
+      cron:
+        name: "Jenkins Security Monitoring"
+        minute: "*/15"
+        job: "/usr/local/bin/jenkins-security-monitor.sh"
+        user: root
+
+    - name: Enable and start security services
+      systemd:
+        name: "{{ item }}"
+        enabled: yes
+        state: started
+      loop:
+        - fail2ban
+        - auditd
+        - apparmor
+
+    - name: Create security baseline file
+      copy:
+        content: |
+          # Jenkins Enterprise Platform Security Baseline
+          # Version: {{ security_baseline_version }}
+          # Created: {{ ansible_date_time.iso8601 }}
+          
+          SECURITY_BASELINE_VERSION="{{ security_baseline_version }}"
+          HARDENING_DATE="{{ ansible_date_time.iso8601 }}"
+          JAVA_VERSION="{{ java_version }}"
+          JENKINS_VERSION="{{ jenkins_version }}"
+          
+          # Security features enabled:
+          # - Fail2ban for SSH protection
+          # - SSH hardening
+          # - Kernel security parameters
+          # - File permission hardening
+          # - Jenkins security configuration
+          # - Audit logging
+          # - Security monitoring
+          # - AppArmor protection
+          
+          echo "Security baseline {{ security_baseline_version }} applied on {{ ansible_date_time.iso8601 }}"
+        dest: /etc/jenkins-security-baseline
+        owner: root
+        group: root
+        mode: '0644'
+
+  handlers:
+    - name: restart fail2ban
+      systemd:
+        name: fail2ban
+        state: restarted
+
+    - name: restart ssh
+      systemd:
+        name: ssh
+        state: restarted
+
+    - name: restart auditd
+      systemd:
+        name: auditd
+        state: restarted

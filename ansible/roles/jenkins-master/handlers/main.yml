@@ -1,0 +1,32 @@
+---
+# Handlers for Jenkins Master Ansible Role
+
+- name: restart jenkins
+  systemd:
+    name: jenkins
+    state: restarted
+    daemon_reload: yes
+  become: yes
+
+- name: restart ssh
+  systemd:
+    name: ssh
+    state: restarted
+  become: yes
+
+- name: restart fail2ban
+  systemd:
+    name: fail2ban
+    state: restarted
+  become: yes
+
+- name: restart cloudwatch-agent
+  systemd:
+    name: amazon-cloudwatch-agent
+    state: restarted
+  become: yes
+
+- name: reload systemd
+  systemd:
+    daemon_reload: yes
+  become: yes

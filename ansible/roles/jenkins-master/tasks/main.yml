@@ -1,0 +1,280 @@
+---
+# Jenkins Master Configuration Ansible Role
+# Story 2.1: Develop Ansible Role to configure Jenkins Master & ensure compliance w.r.t security
+
+- name: Update system packages
+  apt:
+    update_cache: yes
+    upgrade: yes
+    cache_valid_time: 3600
+  become: yes
+
+- name: Install essential packages
+  apt:
+    name:
+      - curl
+      - wget
+      - gnupg2
+      - software-properties-common
+      - apt-transport-https
+      - ca-certificates
+      - lsb-release
+      - unzip
+      - jq
+      - htop
+      - vim
+      - git
+      - nfs-common
+      - awscli
+      - python3-pip
+      - docker.io
+      - prometheus-node-exporter
+      - ufw
+      - fail2ban
+      - auditd
+    state: present
+  become: yes
+
+- name: Install Java 17 (Required for Jenkins 2.516.1+)
+  apt:
+    name: openjdk-17-jdk
+    state: present
+  become: yes
+
+- name: Set JAVA_HOME environment variable
+  lineinfile:
+    path: /etc/environment
+    line: 'JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64'
+    create: yes
+  become: yes
+
+- name: Add Jenkins repository key
+  apt_key:
+    url: https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
+    keyring: /usr/share/keyrings/jenkins-keyring.asc
+    state: present
+  become: yes
+
+- name: Add Jenkins repository
+  apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable binary/"
+    filename: jenkins
+    state: present
+  become: yes
+
+- name: Install Jenkins
+  apt:
+    name: jenkins
+    state: present
+    update_cache: yes
+  become: yes
+
+- name: Configure Jenkins user for sudo access
+  user:
+    name: jenkins
+    groups: sudo,docker
+    append: yes
+  become: yes
+
+- name: Add Jenkins user to sudoers
+  lineinfile:
+    path: /etc/sudoers.d/jenkins
+    line: 'jenkins ALL=(ALL) NOPASSWD: ALL'
+    create: yes
+    mode: '0440'
+  become: yes
+
+- name: Configure Docker for Jenkins
+  systemd:
+    name: docker
+    enabled: yes
+    state: started
+  become: yes
+
+- name: Install AWS CLI v2
+  unarchive:
+    src: https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip
+    dest: /tmp
+    remote_src: yes
+    creates: /tmp/aws
+  become: yes
+
+- name: Install AWS CLI v2 binary
+  command: /tmp/aws/install
+  args:
+    creates: /usr/local/bin/aws
+  become: yes
+
+- name: Install Terraform
+  unarchive:
+    src: "https://releases.hashicorp.com/terraform/{{ terraform_version }}/terraform_{{ terraform_version }}_linux_amd64.zip"
+    dest: /usr/local/bin
+    remote_src: yes
+    creates: /usr/local/bin/terraform
+    mode: '0755'
+  become: yes
+
+- name: Install Ansible via pip
+  pip:
+    name:
+      - ansible
+      - boto3
+      - botocore
+    state: present
+  become: yes
+
+- name: Install Trivy for security scanning
+  shell: |
+    wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | apt-key add -
+    echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | tee -a /etc/apt/sources.list.d/trivy.list
+    apt-get update -y
+    apt-get install -y trivy
+  become: yes
+
+- name: Configure Jenkins JVM options
+  template:
+    src: jenkins-override.conf.j2
+    dest: /etc/systemd/system/jenkins.service.d/override.conf
+    mode: '0644'
+  become: yes
+  notify: restart jenkins
+
+- name: Create Jenkins service override directory
+  file:
+    path: /etc/systemd/system/jenkins.service.d
+    state: directory
+    mode: '0755'
+  become: yes
+
+- name: Configure CloudWatch agent
+  template:
+    src: amazon-cloudwatch-agent.json.j2
+    dest: /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+    mode: '0644'
+  become: yes
+  notify: restart cloudwatch-agent
+
+- name: Download and install CloudWatch agent
+  get_url:
+    url: https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
+    dest: /tmp/amazon-cloudwatch-agent.deb
+    mode: '0644'
+  become: yes
+
+- name: Install CloudWatch agent package
+  apt:
+    deb: /tmp/amazon-cloudwatch-agent.deb
+    state: present
+  become: yes
+
+- name: Configure Prometheus Node Exporter
+  systemd:
+    name: prometheus-node-exporter
+    enabled: yes
+    state: started
+  become: yes
+
+- name: Configure UFW firewall
+  ufw:
+    state: enabled
+    policy: deny
+    direction: incoming
+  become: yes
+
+- name: Allow SSH through firewall
+  ufw:
+    rule: allow
+    port: '22'
+    proto: tcp
+  become: yes
+
+- name: Allow Jenkins through firewall
+  ufw:
+    rule: allow
+    port: '8080'
+    proto: tcp
+  become: yes
+
+- name: Allow Node Exporter through firewall
+  ufw:
+    rule: allow
+    port: '9100'
+    proto: tcp
+  become: yes
+
+- name: Configure SSH security
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^PermitRootLogin'
+    line: 'PermitRootLogin no'
+    backup: yes
+  become: yes
+  notify: restart ssh
+
+- name: Configure fail2ban for SSH
+  template:
+    src: jail.local.j2
+    dest: /etc/fail2ban/jail.local
+    mode: '0644'
+  become: yes
+  notify: restart fail2ban
+
+- name: Enable and start fail2ban
+  systemd:
+    name: fail2ban
+    enabled: yes
+    state: started
+  become: yes
+
+- name: Configure audit daemon
+  systemd:
+    name: auditd
+    enabled: yes
+    state: started
+  become: yes
+
+- name: Create Jenkins backup script
+  template:
+    src: jenkins-backup.sh.j2
+    dest: /usr/local/bin/jenkins-backup.sh
+    mode: '0755'
+  become: yes
+
+- name: Create cron job for daily backups
+  cron:
+    name: "Jenkins daily backup"
+    minute: "0"
+    hour: "2"
+    job: "/usr/local/bin/jenkins-backup.sh"
+    user: jenkins
+  become: yes
+
+- name: Configure log rotation for Jenkins
+  template:
+    src: jenkins-logrotate.j2
+    dest: /etc/logrotate.d/jenkins
+    mode: '0644'
+  become: yes
+
+- name: Enable Jenkins service
+  systemd:
+    name: jenkins
+    enabled: yes
+    daemon_reload: yes
+  become: yes
+
+- name: Create Jenkins plugins list
+  template:
+    src: jenkins-plugins.txt.j2
+    dest: /tmp/jenkins-plugins.txt
+    mode: '0644'
+  become: yes
+
+- name: Create deployment status file
+  template:
+    src: deployment-status.json.j2
+    dest: /var/lib/jenkins/deployment-status.json
+    mode: '0644'
+    owner: jenkins
+    group: jenkins
+  become: yes

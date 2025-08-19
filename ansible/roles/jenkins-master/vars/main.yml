@@ -1,0 +1,67 @@
+---
+# Variables for Jenkins Master Ansible Role
+
+# Java Configuration
+java_version: "17"
+java_home: "/usr/lib/jvm/java-17-openjdk-amd64"
+
+# Jenkins Configuration
+jenkins_version: "2.516.1"
+jenkins_home: "/var/lib/jenkins"
+jenkins_port: "8080"
+jenkins_user: "jenkins"
+jenkins_group: "jenkins"
+
+# JVM Options for Performance
+jenkins_java_opts: "-Djava.awt.headless=true -Xmx4g -Xms2g -XX:+UseG1GC -XX:+UseStringDeduplication"
+jenkins_opts: "--httpPort=8080 --prefix="
+
+# Terraform Version
+terraform_version: "1.5.7"
+
+# Security Configuration
+ssh_port: 22
+fail2ban_bantime: "10m"
+fail2ban_findtime: "10m"
+fail2ban_maxretry: 5
+
+# Monitoring Configuration
+node_exporter_port: 9100
+cloudwatch_namespace: "Jenkins/EC2"
+
+# Backup Configuration
+backup_retention_days: 30
+backup_schedule: "0 2 * * *"  # Daily at 2 AM
+
+# Jenkins Plugins List
+jenkins_plugins:
+  - prometheus:2.0.11
+  - build-monitor-plugin:1.12+build.201809061734
+  - monitoring:1.95.0
+  - aws-credentials:191.vcb_f183ce58b_9
+  - pipeline-stage-view:2.25
+  - blueocean:1.25.2
+  - role-strategy:546.vd4a_6759b_7c04
+  - matrix-auth:3.1.5
+  - configuration-as-code:1625.v27444588cc3d
+  - workflow-aggregator:590.v6a_d052e5a_a_b_5
+  - git:4.13.0
+  - github:1.37.0
+  - docker-workflow:563.vd5d2e5c4007f
+  - ansible:204.v8191fd75b_fcd
+  - terraform:1.0.10
+
+# Security Hardening Settings
+security_hardening:
+  disable_root_login: true
+  configure_firewall: true
+  install_fail2ban: true
+  enable_audit_logging: true
+  configure_log_rotation: true
+  
+# Compliance Settings
+compliance:
+  cis_benchmarks: true
+  security_scanning: true
+  vulnerability_assessment: true
+  access_control: true
