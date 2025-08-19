@@ -1,0 +1,125 @@
+{
+  "variables": {
+    "aws_region": "us-east-1",
+    "instance_type": "t3.medium",
+    "source_ami_filter": "ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*",
+    "ami_name": "jenkins-golden-ami-{{timestamp}}",
+    "jenkins_version": "2.516.1",
+    "java_version": "17"
+  },
+  "builders": [
+    {
+      "type": "amazon-ebs",
+      "region": "{{user `aws_region`}}",
+      "instance_type": "{{user `instance_type`}}",
+      "source_ami_filter": {
+        "filters": {
+          "name": "{{user `source_ami_filter`}}",
+          "root-device-type": "ebs",
+          "virtualization-type": "hvm"
+        },
+        "owners": ["099720109477"],
+        "most_recent": true
+      },
+      "ssh_username": "ubuntu",
+      "ami_name": "{{user `ami_name`}}",
+      "ami_description": "Jenkins Enterprise Platform Golden AMI with Java {{user `java_version`}} and Jenkins {{user `jenkins_version`}}",
+      "tags": {
+        "Name": "Jenkins-Golden-AMI-Simple",
+        "Environment": "staging",
+        "Project": "jenkins-enterprise-platform",
+        "CreatedBy": "Packer",
+        "JavaVersion": "{{user `java_version`}}",
+        "JenkinsVersion": "{{user `jenkins_version`}}",
+        "BuildDate": "{{timestamp}}",
+        "Epic": "Epic-2-Golden-Image",
+        "Owner": "DevOps Team",
+        "ManagedBy": "Packer",
+        "SecurityHardened": "basic",
+        "MonitoringEnabled": "true",
+        "BackupEnabled": "true"
+      },
+      "run_tags": {
+        "Name": "Packer-Jenkins-Builder-Simple",
+        "Environment": "build",
+        "Project": "jenkins-enterprise-platform"
+      },
+      "run_volume_tags": {
+        "Name": "Packer-Jenkins-Builder-Volume",
+        "Environment": "build",
+        "Encrypted": "true"
+      },
+      "snapshot_tags": {
+        "Name": "Jenkins-Golden-AMI-Snapshot",
+        "Environment": "staging",
+        "Project": "jenkins-enterprise-platform"
+      },
+      "ebs_optimized": true,
+      "ena_support": true,
+      "sriov_support": true,
+      "encrypt_boot": true,
+      "launch_block_device_mappings": [
+        {
+          "device_name": "/dev/sda1",
+          "volume_type": "gp3",
+          "volume_size": 30,
+          "iops": 3000,
+          "throughput": 125,
+          "encrypted": true,
+          "delete_on_termination": true
+        }
+      ]
+    }
+  ],
+  "provisioners": [
+    {
+      "type": "shell",
+      "inline": [
+        "echo 'Starting Jenkins Golden AMI build...'",
+        "sudo apt-get update -y",
+        "sudo apt-get upgrade -y"
+      ]
+    },
+    {
+      "type": "file",
+      "source": "./jenkins-user-data-updated.sh",
+      "destination": "/tmp/jenkins-setup.sh"
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "chmod +x /tmp/jenkins-setup.sh",
+        "sudo /tmp/jenkins-setup.sh"
+      ]
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "echo 'Running basic security hardening...'",
+        "sudo ufw --force enable",
+        "sudo ufw allow 22/tcp",
+        "sudo ufw allow 8080/tcp",
+        "sudo ufw allow 9100/tcp",
+        "echo 'Basic security hardening completed'",
+        "sudo systemctl stop jenkins",
+        "sudo systemctl disable jenkins",
+        "echo 'Jenkins service disabled for AMI creation'",
+        "sudo rm -rf /var/lib/jenkins/secrets/initialAdminPassword",
+        "sudo rm -rf /var/lib/jenkins/config.xml",
+        "echo 'Cleaned up Jenkins configuration for AMI'",
+        "sudo apt-get autoremove -y",
+        "sudo apt-get autoclean",
+        "sudo rm -rf /tmp/*",
+        "sudo rm -rf /var/tmp/*",
+        "echo 'AMI preparation completed'"
+      ]
+    }
+  ],
+  "post-processors": [
+    {
+      "type": "manifest",
+      "output": "jenkins-golden-ami-manifest.json",
+      "strip_path": true
+    }
+  ]
+}
