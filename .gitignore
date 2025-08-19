@@ -1,0 +1,85 @@
+# Terraform
+*.tfstate
+*.tfstate.*
+*.tfvars
+.terraform/
+.terraform.lock.hcl
+terraform.tfplan
+terraform.tfplan.*
+
+# Ansible
+*.retry
+.vault_pass
+host_vars/
+group_vars/secrets.yml
+
+# AWS
+.aws/
+*.pem
+*.key
+!*.key.pub
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+*.out
+
+# Packer
+packer_cache/
+*.box
+
+# Secrets
+secrets/
+*.secret
+.env
+.env.local
+
+# Build artifacts
+build/
+dist/
+target/
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# Jenkins
+jenkins_home/
+.jenkins/
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
