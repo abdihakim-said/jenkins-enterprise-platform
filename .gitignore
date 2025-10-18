@@ -1,0 +1,47 @@
+# Terraform
+*.tfstate
+*.tfstate.*
+*.tfvars
+.terraform/
+.terraform.lock.hcl
+tfplan*
+crash.log
+crash.*.log
+
+# Packer
+packer_cache/
+*.box
+manifest.json
+
+# AWS & Jenkins
+jenkins-key*
+*.pem
+*.jar
+*.log
+
+# IDE & OS
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+ami-id.txt
+new-ami-id.txt
+packer-build.log
+golden-ami-build.log
+ami-report.json
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Secrets
+secrets.yml
+.env
+.env.local
