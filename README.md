@@ -27,6 +27,10 @@ Production-ready Jenkins deployment on AWS using modular Terraform architecture 
 
 ## 🏗️ Architecture Overview
 
+![Jenkins Enterprise Platform - Detailed Architecture](./generated-diagrams/jenkins_enterprise_platform_-_detailed_aws_architecture.png)
+
+![Jenkins AWS Architecture](./generated-diagrams/jenkins-aws-architecture.drawio.png)
+
 This project deploys a highly available, scalable Jenkins environment with:
 
 - **High Availability**: Multi-AZ deployment with Auto Scaling Group
