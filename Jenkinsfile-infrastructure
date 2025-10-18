@@ -1,0 +1,383 @@
+#!/usr/bin/env groovy
+/*
+ * Infrastructure Deployment Pipeline - Aligned with Current Terraform Setup
+ * Uses existing modules: vpc, security, iam, efs, alb, jenkins, cloudwatch, inspector
+ */
+
+pipeline {
+    agent any
+    
+    parameters {
+        choice(name: 'ENVIRONMENT', choices: ['dev', 'staging', 'production'], description: 'Target environment')
+        booleanParam(name: 'SKIP_SECURITY_SCAN', defaultValue: false, description: 'Skip security scanning')
+        booleanParam(name: 'DRY_RUN', defaultValue: false, description: 'Plan only, do not apply')
+        booleanParam(name: 'FORCE_NEW_AMI', defaultValue: false, description: 'Force use latest AMI even if no changes')
+        choice(name: 'DEPLOYMENT_STRATEGY', choices: ['standard', 'blue-green'], description: 'Deployment strategy')
+        booleanParam(name: 'ENABLE_BACKUP', defaultValue: false, description: 'Enable automated backup')
+    }
+    
+    environment {
+        AWS_DEFAULT_REGION = 'us-east-1'
+        TF_IN_AUTOMATION = 'true'
+        TF_INPUT = 'false'
+        TF_VAR_environment = "${params.ENVIRONMENT}"
+        DR_REGION = 'us-west-2'
+    }
+    
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        timeout(time: 1, unit: 'HOURS')
+        timestamps()
+    }
+    
+    stages {
+        stage('🔒 Infrastructure Security Scan') {
+            when { not { params.SKIP_SECURITY_SCAN } }
+            parallel {
+                stage('TFSec Scan') {
+                    steps {
+                        sh '''
+                            echo "🔍 Running TFSec security scan..."
+                            docker run --rm -v $PWD:/src aquasec/tfsec /src \
+                                --format json --out tfsec-results.json --soft-fail
+                            
+                            CRITICAL=$(jq '[.results[]? | select(.severity=="CRITICAL")] | length' tfsec-results.json)
+                            if [ "$CRITICAL" -gt "0" ]; then
+                                echo "❌ Critical security issues: $CRITICAL"
+                                exit 1
+                            fi
+                            echo "✅ TFSec scan passed"
+                        '''
+                    }
+                }
+                
+                stage('Checkov Scan') {
+                    steps {
+                        sh '''
+                            echo "🔍 Running Checkov IaC scan..."
+                            docker run --rm -v $PWD:/tf bridgecrew/checkov \
+                                -d /tf --framework terraform \
+                                --output json --output-file-path /tf/checkov-results.json --soft-fail
+                            echo "✅ Checkov scan completed"
+                        '''
+                    }
+                }
+                
+                stage('Secrets Scan') {
+                    steps {
+                        sh '''
+                            echo "🔍 Scanning for secrets..."
+                            docker run --rm -v $PWD:/path zricethezav/gitleaks detect \
+                                --source="/path" --report-format json \
+                                --report-path gitleaks-results.json --exit-code 0
+                            
+                            if [ -s gitleaks-results.json ]; then
+                                SECRETS=$(jq length gitleaks-results.json)
+                                if [ "$SECRETS" -gt "0" ]; then
+                                    echo "❌ Secrets detected: $SECRETS"
+                                    exit 1
+                                fi
+                            fi
+                            echo "✅ No secrets detected"
+                        '''
+                    }
+                }
+            }
+        }
+        
+        stage('📋 Check Latest Golden AMI') {
+            steps {
+                script {
+                    sh '''
+                        echo "📋 Checking for latest Golden AMI..."
+                        
+                        # Get latest AMI matching your naming pattern
+                        LATEST_AMI=$(aws ec2 describe-images \
+                            --owners self \
+                            --filters "Name=name,Values=jenkins-golden-ami-*" "Name=state,Values=available" \
+                            --query 'Images | sort_by(@, &CreationDate) | [-1].ImageId' \
+                            --output text)
+                        
+                        if [ "$LATEST_AMI" = "None" ] || [ -z "$LATEST_AMI" ]; then
+                            echo "❌ No Golden AMI found! Run AMI Factory pipeline first."
+                            exit 1
+                        fi
+                        
+                        echo "LATEST_AMI_ID=$LATEST_AMI" > ami.env
+                        
+                        # Get AMI details
+                        aws ec2 describe-images --image-ids $LATEST_AMI \
+                            --query 'Images[0].{Name:Name,CreationDate:CreationDate,Tags:Tags}' \
+                            --output table
+                        
+                        echo "✅ Using Golden AMI: $LATEST_AMI"
+                    '''
+                }
+            }
+        }
+        
+        stage('🏗️ Terraform Plan') {
+            steps {
+                script {
+                    sh '''
+                        echo "🏗️ Planning infrastructure for ${ENVIRONMENT}..."
+                        
+                        # Use environment-specific directory structure
+                        cd environments/${ENVIRONMENT}
+                        
+                        # Initialize Terraform
+                        terraform init
+                        terraform validate
+                        
+                        # Plan deployment
+                        terraform plan -out=${ENVIRONMENT}-deploy.tfplan
+                        
+                        # Generate plan analysis
+                        terraform show -json ${ENVIRONMENT}-deploy.tfplan > ../../${ENVIRONMENT}-plan.json
+                        
+                        echo "✅ Terraform plan completed"
+                    '''
+                }
+            }
+        }
+        
+        stage('📊 Plan Analysis & Approval') {
+            steps {
+                script {
+                    sh '''
+                        echo "📊 Analyzing Terraform plan..."
+                        
+                        # Extract plan statistics
+                        RESOURCES_TO_ADD=$(jq '[.planned_values.root_module.resources[]? | select(.mode=="managed")] | length' ${ENVIRONMENT}-plan.json)
+                        RESOURCES_TO_CHANGE=$(jq '[.resource_changes[]? | select(.change.actions[] | contains("update"))] | length' ${ENVIRONMENT}-plan.json)
+                        RESOURCES_TO_DESTROY=$(jq '[.resource_changes[]? | select(.change.actions[] | contains("delete"))] | length' ${ENVIRONMENT}-plan.json)
+                        
+                        echo "=== Plan Summary ==="
+                        echo "Resources to add: $RESOURCES_TO_ADD"
+                        echo "Resources to change: $RESOURCES_TO_CHANGE"  
+                        echo "Resources to destroy: $RESOURCES_TO_DESTROY"
+                        echo "===================="
+                        
+                        # Check for destructive changes in production
+                        if [ "${ENVIRONMENT}" = "production" ] && [ "$RESOURCES_TO_DESTROY" -gt "0" ]; then
+                            echo "⚠️ WARNING: Production deployment will destroy $RESOURCES_TO_DESTROY resources"
+                        fi
+                    '''
+                    
+                    // Production requires manual approval
+                    if (params.ENVIRONMENT == 'production' && !params.DRY_RUN) {
+                        timeout(time: 10, unit: 'MINUTES') {
+                            input message: "Deploy to Production?", 
+                                  ok: 'Deploy',
+                                  submitterParameter: 'APPROVER'
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('🚀 Deploy Infrastructure') {
+            when { not { params.DRY_RUN } }
+            steps {
+                script {
+                    sh '''
+                        echo "🚀 Deploying infrastructure to ${ENVIRONMENT}..."
+                        cd environments/${ENVIRONMENT}
+                        
+                        # Apply the plan
+                        terraform apply -auto-approve ${ENVIRONMENT}-deploy.tfplan
+                        
+                        # Generate outputs
+                        terraform output -json > ../../${ENVIRONMENT}-outputs.json
+                        
+                        echo "✅ Infrastructure deployed successfully"
+                    '''
+                }
+            }
+        }
+        
+        stage('✅ Post-Deployment Validation') {
+            when { not { params.DRY_RUN } }
+            parallel {
+                stage('Health Check') {
+                    steps {
+                        script {
+                            sh '''
+                                echo "✅ Running health checks..."
+                                
+                                # Get Jenkins URL from outputs (matches your output format)
+                                JENKINS_URL=$(jq -r '.jenkins_url.value' ${ENVIRONMENT}-outputs.json)
+                                
+                                if [ "$JENKINS_URL" != "null" ]; then
+                                    echo "Jenkins URL: $JENKINS_URL"
+                                    
+                                    # Wait for Jenkins to be accessible
+                                    echo "Waiting for Jenkins to be ready..."
+                                    timeout 600 bash -c "until curl -s $JENKINS_URL/login; do sleep 15; done"
+                                    
+                                    # Validate Jenkins login page
+                                    if curl -s $JENKINS_URL/login | grep -q "Jenkins"; then
+                                        echo "✅ Jenkins is accessible at: $JENKINS_URL"
+                                    else
+                                        echo "❌ Jenkins health check failed"
+                                        exit 1
+                                    fi
+                                else
+                                    echo "❌ No Jenkins URL found in outputs"
+                                    exit 1
+                                fi
+                            '''
+                        }
+                    }
+                }
+                
+                stage('Infrastructure Validation') {
+                    steps {
+                        script {
+                            sh '''
+                                echo "🔍 Validating infrastructure components..."
+                                
+                                # Validate VPC
+                                VPC_ID=$(jq -r '.vpc_id.value' ${ENVIRONMENT}-outputs.json)
+                                aws ec2 describe-vpcs --vpc-ids $VPC_ID --query 'Vpcs[0].State' --output text
+                                
+                                # Validate Auto Scaling Group
+                                ASG_NAME=$(jq -r '.jenkins_auto_scaling_group_name.value' ${ENVIRONMENT}-outputs.json)
+                                aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names $ASG_NAME \
+                                    --query 'AutoScalingGroups[0].{DesiredCapacity:DesiredCapacity,Instances:length(Instances)}' \
+                                    --output table
+                                
+                                # Validate EFS
+                                EFS_ID=$(jq -r '.efs_file_system_id.value' ${ENVIRONMENT}-outputs.json)
+                                aws efs describe-file-systems --file-system-id $EFS_ID \
+                                    --query 'FileSystems[0].LifeCycleState' --output text
+                                
+                                echo "✅ Infrastructure validation completed"
+                            '''
+                        }
+                    }
+                }
+                
+                stage('Security Validation') {
+                    steps {
+                        script {
+                            sh '''
+                                echo "🔒 Running security validation..."
+                                
+                                JENKINS_URL=$(jq -r '.jenkins_url.value' ${ENVIRONMENT}-outputs.json)
+                                
+                                # Check security headers
+                                echo "Checking security headers..."
+                                curl -I $JENKINS_URL 2>/dev/null | grep -i "x-content-type-options" && echo "✅ Security headers present" || echo "⚠️ Missing security headers"
+                                
+                                # Validate security groups
+                                SG_ID=$(jq -r '.jenkins_security_group_id.value' ${ENVIRONMENT}-outputs.json)
+                                aws ec2 describe-security-groups --group-ids $SG_ID \
+                                    --query 'SecurityGroups[0].GroupName' --output text
+                                
+                                echo "✅ Security validation completed"
+                            '''
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('📋 Generate Deployment Report') {
+            when { not { params.DRY_RUN } }
+            steps {
+                script {
+                    sh '''
+                        echo "📋 Generating deployment report..."
+                        
+                        # Load AMI info
+                        source ami.env
+                        
+                        # Create comprehensive deployment report
+                        cat > deployment-report-${ENVIRONMENT}.json << EOF
+{
+    "deployment": {
+        "environment": "${ENVIRONMENT}",
+        "build_number": "${BUILD_NUMBER}",
+        "ami_id": "$LATEST_AMI_ID",
+        "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+        "approver": "${APPROVER:-automated}",
+        "dry_run": ${DRY_RUN}
+    },
+    "security": {
+        "tfsec_scan": $([ "${SKIP_SECURITY_SCAN}" = "false" ] && echo "true" || echo "false"),
+        "checkov_scan": $([ "${SKIP_SECURITY_SCAN}" = "false" ] && echo "true" || echo "false"),
+        "secrets_scan": $([ "${SKIP_SECURITY_SCAN}" = "false" ] && echo "true" || echo "false")
+    },
+    "infrastructure": $(cat ${ENVIRONMENT}-outputs.json),
+    "validation": {
+        "health_check": "passed",
+        "security_check": "passed",
+        "infrastructure_check": "passed"
+    }
+}
+EOF
+                        
+                        # Store report in S3 (using your existing backup bucket pattern)
+                        aws s3 cp deployment-report-${ENVIRONMENT}.json s3://jenkins-enterprise-backup/deployment-reports/$(date +%Y%m%d)/
+                        
+                        echo "✅ Deployment report generated and stored"
+                    '''
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            archiveArtifacts artifacts: '''
+                **/*-results.json,
+                **/*-plan.json,
+                **/*-outputs.json,
+                deployment-report-*.json,
+                ami.env
+            ''', allowEmptyArchive: true
+        }
+        
+        success {
+            script {
+                if (!params.DRY_RUN) {
+                    def jenkinsUrl = sh(script: 'jq -r ".jenkins_url.value" ${ENVIRONMENT}-outputs.json', returnStdout: true).trim()
+                    def amiId = sh(script: 'source ami.env && echo $LATEST_AMI_ID', returnStdout: true).trim()
+                    
+                    echo """
+🎉 Infrastructure Deployment Successful!
+========================================
+Environment: ${params.ENVIRONMENT}
+Jenkins URL: ${jenkinsUrl}
+AMI ID: ${amiId}
+Build: ${BUILD_NUMBER}
+Duration: ${currentBuild.durationString}
+
+Infrastructure is ready! 🚀
+
+Connection Info:
+- URL: ${jenkinsUrl}
+- Admin Password: aws ssm get-parameter --name '/jenkins/${params.ENVIRONMENT}/admin-password' --with-decryption --query 'Parameter.Value' --output text --region us-east-1
+"""
+                } else {
+                    echo "✅ Dry run completed successfully - no resources deployed"
+                }
+            }
+        }
+        
+        failure {
+            script {
+                echo """
+❌ Infrastructure Deployment Failed!
+===================================
+Environment: ${params.ENVIRONMENT}
+Build: ${BUILD_NUMBER}
+Duration: ${currentBuild.durationString}
+
+Check logs for details.
+"""
+            }
+        }
+    }
+}

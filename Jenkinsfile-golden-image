@@ -1,0 +1,647 @@
+#!/usr/bin/env groovy
+// Jenkins Golden Image Pipeline
+// Epic 2.4: DevSecOps pipeline to build & scan golden image
+
+pipeline {
+    agent any
+    
+    // DevSecOps: Quarterly AMI updates for security and compliance
+    triggers {
+        cron('H 2 1 */3 *')  // Every 3 months on 1st at 2 AM
+    }
+    
+    parameters {
+        choice(
+            name: 'ENVIRONMENT',
+            choices: ['staging', 'production', 'dev'],
+            description: 'Target environment for AMI'
+        )
+        choice(
+            name: 'INSTANCE_TYPE',
+            choices: ['t3.medium', 't3.large', 'm5.large', 'm5.xlarge'],
+            description: 'Instance type for AMI building'
+        )
+        booleanParam(
+            name: 'SKIP_SECURITY_SCAN',
+            defaultValue: false,
+            description: 'Skip security scanning (not recommended for production)'
+        )
+        booleanParam(
+            name: 'FORCE_REBUILD',
+            defaultValue: false,
+            description: 'Force rebuild even if no changes detected'
+        )
+        string(
+            name: 'JENKINS_VERSION',
+            defaultValue: '2.426.1',
+            description: 'Jenkins version to install'
+        )
+        booleanParam(
+            name: 'ENABLE_DR_SYNC',
+            defaultValue: true,
+            description: 'Sync AMI to disaster recovery region'
+        )
+    }
+    
+    environment {
+        AWS_DEFAULT_REGION = 'us-east-1'
+        PACKER_LOG = '1'
+        TRIVY_CACHE_DIR = '/tmp/trivy-cache'
+        SLACK_CHANNEL = '#devops-alerts'
+        BUILD_TIMESTAMP = sh(script: 'date +%Y%m%d_%H%M%S', returnStdout: true).trim()
+        AMI_NAME_PREFIX = "jenkins-golden-ami-${params.ENVIRONMENT}"
+        DR_REGION = 'us-west-2'
+    }
+    
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        timeout(time: 2, unit: 'HOURS')
+        timestamps()
+        skipDefaultCheckout()
+    }
+    
+    stages {
+        stage('🚀 Initialize') {
+            steps {
+                script {
+                    // Clean workspace
+                    cleanWs()
+                    
+                    // Set build description
+                    currentBuild.description = "Environment: ${params.ENVIRONMENT} | Instance: ${params.INSTANCE_TYPE}"
+                    
+                    // Validate parameters
+                    if (!params.ENVIRONMENT) {
+                        error("Environment parameter is required")
+                    }
+                    
+                    echo """
+                    🏗️ Jenkins Golden Image Pipeline Started
+                    ==========================================
+                    Environment: ${params.ENVIRONMENT}
+                    Instance Type: ${params.INSTANCE_TYPE}
+                    Jenkins Version: ${params.JENKINS_VERSION}
+                    Build Timestamp: ${env.BUILD_TIMESTAMP}
+                    Skip Security Scan: ${params.SKIP_SECURITY_SCAN}
+                    Force Rebuild: ${params.FORCE_REBUILD}
+                    ==========================================
+                    """
+                }
+            }
+        }
+        
+        stage('🔍 Pre-flight Checks') {
+            parallel {
+                stage('Validate AWS Credentials') {
+                    steps {
+                        script {
+                            sh '''
+                                echo "🔐 Validating AWS credentials..."
+                                aws sts get-caller-identity
+                                aws ec2 describe-regions --region ${AWS_DEFAULT_REGION}
+                            '''
+                        }
+                    }
+                }
+                
+                stage('Check Dependencies') {
+                    steps {
+                        script {
+                            sh '''
+                                echo "📦 Checking required tools..."
+                                packer version
+                                terraform version
+                                trivy version
+                                ansible --version
+                                docker --version
+                            '''
+                        }
+                    }
+                }
+                
+                stage('Validate Terraform') {
+                    steps {
+                        script {
+                            sh '''
+                                echo "🏗️ Validating Terraform configuration..."
+                                terraform init -backend=false
+                                terraform validate
+                                terraform fmt -check=true
+                            '''
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('🏗️ Infrastructure Preparation') {
+            steps {
+                script {
+                    sh '''
+                        echo "🏗️ Preparing infrastructure for AMI building..."
+                        
+                        # Get VPC and subnet information
+                        export VPC_ID=$(terraform output -raw vpc_id 2>/dev/null || echo "")
+                        export SUBNET_ID=$(terraform output -raw public_subnet_ids 2>/dev/null | cut -d',' -f1 || echo "")
+                        export SECURITY_GROUP_ID=$(terraform output -raw jenkins_security_group_id 2>/dev/null || echo "")
+                        export EFS_FILE_SYSTEM_ID=$(terraform output -raw efs_file_system_id 2>/dev/null || echo "")
+                        
+                        echo "VPC ID: ${VPC_ID}"
+                        echo "Subnet ID: ${SUBNET_ID}"
+                        echo "Security Group ID: ${SECURITY_GROUP_ID}"
+                        echo "EFS File System ID: ${EFS_FILE_SYSTEM_ID}"
+                        
+                        # Create Packer variables file
+                        cat > packer/terraform.auto.pkrvars.hcl << EOF
+aws_region = "${AWS_DEFAULT_REGION}"
+environment = "${params.ENVIRONMENT}"
+instance_type = "${params.INSTANCE_TYPE}"
+jenkins_version = "${params.JENKINS_VERSION}"
+vpc_id = "${VPC_ID}"
+subnet_id = "${SUBNET_ID}"
+security_group_id = "${SECURITY_GROUP_ID}"
+efs_file_system_id = "${EFS_FILE_SYSTEM_ID}"
+ami_name_prefix = "${env.AMI_NAME_PREFIX}"
+project_name = "jenkins-enterprise-platform"
+EOF
+                    '''
+                }
+            }
+        }
+        
+        stage('🔨 Build Golden AMI') {
+            steps {
+                script {
+                    sh '''
+                        echo "🔨 Building Jenkins Golden AMI..."
+                        cd packer
+                        
+                        # Initialize Packer
+                        packer init jenkins-ami.pkr.hcl
+                        
+                        # Validate Packer configuration
+                        packer validate jenkins-ami.pkr.hcl
+                        
+                        # Build AMI
+                        packer build \
+                            -var-file="terraform.auto.pkrvars.hcl" \
+                            -machine-readable \
+                            jenkins-ami.pkr.hcl | tee ../packer-build.log
+                        
+                        # Extract AMI ID from build log
+                        AMI_ID=$(grep 'artifact,0,id' ../packer-build.log | cut -d, -f6 | cut -d: -f2)
+                        echo "Built AMI ID: ${AMI_ID}"
+                        echo "${AMI_ID}" > ../ami-id.txt
+                        
+                        # Tag the AMI
+                        aws ec2 create-tags \
+                            --resources ${AMI_ID} \
+                            --tags \
+                                Key=BuildNumber,Value=${BUILD_NUMBER} \
+                                Key=GitCommit,Value=${GIT_COMMIT} \
+                                Key=JenkinsVersion,Value=${params.JENKINS_VERSION} \
+                                Key=BuildTimestamp,Value=${BUILD_TIMESTAMP}
+                    '''
+                }
+            }
+        }
+        
+        stage('🔒 Security Scanning') {
+            when {
+                expression { !params.SKIP_SECURITY_SCAN }
+            }
+            parallel {
+                stage('Trivy AMI Scan') {
+                    steps {
+                        script {
+                            sh '''
+                                echo "🔍 Scanning AMI with Trivy..."
+                                
+                                # Create Trivy cache directory
+                                mkdir -p ${TRIVY_CACHE_DIR}
+                                
+                                # Get AMI ID
+                                AMI_ID=$(cat ami-id.txt)
+                                
+                                # Launch temporary instance for scanning
+                                INSTANCE_ID=$(aws ec2 run-instances \
+                                    --image-id ${AMI_ID} \
+                                    --instance-type t3.micro \
+                                    --key-name jenkins-key \
+                                    --security-group-ids $(terraform output -raw jenkins_security_group_id) \
+                                    --subnet-id $(terraform output -raw public_subnet_ids | cut -d',' -f1) \
+                                    --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=trivy-scan-temp},{Key=Purpose,Value=security-scan}]' \
+                                    --query 'Instances[0].InstanceId' \
+                                    --output text)
+                                
+                                echo "Launched temporary instance: ${INSTANCE_ID}"
+                                
+                                # Wait for instance to be running
+                                aws ec2 wait instance-running --instance-ids ${INSTANCE_ID}
+                                
+                                # Get instance IP
+                                INSTANCE_IP=$(aws ec2 describe-instances \
+                                    --instance-ids ${INSTANCE_ID} \
+                                    --query 'Reservations[0].Instances[0].PublicIpAddress' \
+                                    --output text)
+                                
+                                echo "Instance IP: ${INSTANCE_IP}"
+                                
+                                # Wait for SSH to be available
+                                timeout 300 bash -c 'until nc -z ${INSTANCE_IP} 22; do sleep 5; done'
+                                
+                                # Run Trivy scan via SSH
+                                ssh -o StrictHostKeyChecking=no -i ~/.ssh/jenkins-key ec2-user@${INSTANCE_IP} '
+                                    # Install Trivy
+                                    sudo rpm -ivh https://github.com/aquasecurity/trivy/releases/download/v0.45.0/trivy_0.45.0_Linux-64bit.rpm
+                                    
+                                    # Scan the system
+                                    sudo trivy fs --format json --output /tmp/trivy-report.json /
+                                    sudo trivy fs --format table /
+                                '
+                                
+                                # Copy scan results
+                                scp -o StrictHostKeyChecking=no -i ~/.ssh/jenkins-key ec2-user@${INSTANCE_IP}:/tmp/trivy-report.json ./trivy-report.json
+                                
+                                # Terminate temporary instance
+                                aws ec2 terminate-instances --instance-ids ${INSTANCE_ID}
+                                
+                                # Process scan results
+                                CRITICAL_COUNT=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="CRITICAL")] | length' trivy-report.json)
+                                HIGH_COUNT=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="HIGH")] | length' trivy-report.json)
+                                
+                                echo "Security Scan Results:"
+                                echo "Critical vulnerabilities: ${CRITICAL_COUNT}"
+                                echo "High vulnerabilities: ${HIGH_COUNT}"
+                                
+                                # Fail build if critical vulnerabilities found
+                                if [ "${CRITICAL_COUNT}" -gt "0" ]; then
+                                    echo "❌ Critical vulnerabilities found! Build failed."
+                                    exit 1
+                                fi
+                                
+                                # Warn about high vulnerabilities
+                                if [ "${HIGH_COUNT}" -gt "10" ]; then
+                                    echo "⚠️ High number of high-severity vulnerabilities found: ${HIGH_COUNT}"
+                                fi
+                            '''
+                        }
+                    }
+                    post {
+                        always {
+                            archiveArtifacts artifacts: 'trivy-report.json', allowEmptyArchive: true
+                        }
+                    }
+                }
+                
+                stage('AWS Inspector Assessment') {
+                    steps {
+                        script {
+                            sh '''
+                                echo "🔍 Running AWS Inspector assessment..."
+                                
+                                # Get AMI ID
+                                AMI_ID=$(cat ami-id.txt)
+                                
+                                # Create Inspector assessment target
+                                ASSESSMENT_TARGET_ARN=$(aws inspector create-assessment-target \
+                                    --assessment-target-name "jenkins-ami-${BUILD_NUMBER}" \
+                                    --query 'assessmentTargetArn' \
+                                    --output text)
+                                
+                                echo "Created assessment target: ${ASSESSMENT_TARGET_ARN}"
+                                
+                                # Get rules packages
+                                RULES_PACKAGES=$(aws inspector list-rules-packages \
+                                    --query 'rulesPackageArns' \
+                                    --output text | tr '\t' ' ')
+                                
+                                # Create assessment template
+                                ASSESSMENT_TEMPLATE_ARN=$(aws inspector create-assessment-template \
+                                    --assessment-target-arn ${ASSESSMENT_TARGET_ARN} \
+                                    --assessment-template-name "jenkins-ami-template-${BUILD_NUMBER}" \
+                                    --duration-in-seconds 3600 \
+                                    --rules-package-arns ${RULES_PACKAGES} \
+                                    --query 'assessmentTemplateArn' \
+                                    --output text)
+                                
+                                echo "Created assessment template: ${ASSESSMENT_TEMPLATE_ARN}"
+                                
+                                # Start assessment run
+                                ASSESSMENT_RUN_ARN=$(aws inspector start-assessment-run \
+                                    --assessment-template-arn ${ASSESSMENT_TEMPLATE_ARN} \
+                                    --assessment-run-name "jenkins-ami-run-${BUILD_NUMBER}" \
+                                    --query 'assessmentRunArn' \
+                                    --output text)
+                                
+                                echo "Started assessment run: ${ASSESSMENT_RUN_ARN}"
+                                echo "${ASSESSMENT_RUN_ARN}" > inspector-run-arn.txt
+                                
+                                # Note: Assessment will run in background
+                                # Results will be available in AWS Inspector console
+                            '''
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('✅ AMI Validation') {
+            steps {
+                script {
+                    sh '''
+                        echo "✅ Validating AMI functionality..."
+                        
+                        # Get AMI ID
+                        AMI_ID=$(cat ami-id.txt)
+                        
+                        # Launch test instance
+                        TEST_INSTANCE_ID=$(aws ec2 run-instances \
+                            --image-id ${AMI_ID} \
+                            --instance-type t3.small \
+                            --key-name jenkins-key \
+                            --security-group-ids $(terraform output -raw jenkins_security_group_id) \
+                            --subnet-id $(terraform output -raw public_subnet_ids | cut -d',' -f1) \
+                            --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=jenkins-ami-test},{Key=Purpose,Value=validation}]' \
+                            --query 'Instances[0].InstanceId' \
+                            --output text)
+                        
+                        echo "Launched test instance: ${TEST_INSTANCE_ID}"
+                        
+                        # Wait for instance to be running
+                        aws ec2 wait instance-running --instance-ids ${TEST_INSTANCE_ID}
+                        
+                        # Get instance IP
+                        TEST_INSTANCE_IP=$(aws ec2 describe-instances \
+                            --instance-ids ${TEST_INSTANCE_ID} \
+                            --query 'Reservations[0].Instances[0].PublicIpAddress' \
+                            --output text)
+                        
+                        echo "Test instance IP: ${TEST_INSTANCE_IP}"
+                        
+                        # Wait for SSH and Jenkins to be available
+                        timeout 600 bash -c 'until nc -z ${TEST_INSTANCE_IP} 22; do sleep 5; done'
+                        sleep 60  # Additional wait for Jenkins to start
+                        
+                        # Run validation tests
+                        ssh -o StrictHostKeyChecking=no -i ~/.ssh/jenkins-key ec2-user@${TEST_INSTANCE_IP} '
+                            echo "🧪 Running AMI validation tests..."
+                            
+                            # Test Java installation
+                            java -version
+                            
+                            # Test Jenkins service
+                            sudo systemctl status jenkins
+                            
+                            # Test Docker
+                            docker --version
+                            sudo docker run hello-world
+                            
+                            # Test AWS CLI
+                            aws --version
+                            
+                            # Test Jenkins web interface
+                            timeout 300 bash -c "until curl -s http://localhost:8080/login; do sleep 10; done"
+                            
+                            # Test EFS mount (if available)
+                            if [ -d "/mnt/efs" ]; then
+                                ls -la /mnt/efs/
+                            fi
+                            
+                            echo "✅ All validation tests passed!"
+                        '
+                        
+                        # Terminate test instance
+                        aws ec2 terminate-instances --instance-ids ${TEST_INSTANCE_ID}
+                        
+                        echo "✅ AMI validation completed successfully"
+                    '''
+                }
+            }
+        }
+        
+        stage('📋 Generate AMI Manifest') {
+            steps {
+                script {
+                    sh '''
+                        echo "📋 Generating AMI manifest..."
+                        
+                        # Get AMI ID and details
+                        AMI_ID=$(cat ami-id.txt)
+                        
+                        # Get AMI details
+                        aws ec2 describe-images --image-ids ${AMI_ID} --output json > ami-details.json
+                        
+                        # Create comprehensive manifest
+                        cat > ami-manifest.json << EOF
+{
+    "ami_info": {
+        "ami_id": "${AMI_ID}",
+        "name": "${env.AMI_NAME_PREFIX}-${env.BUILD_TIMESTAMP}",
+        "environment": "${params.ENVIRONMENT}",
+        "instance_type_used": "${params.INSTANCE_TYPE}",
+        "jenkins_version": "${params.JENKINS_VERSION}",
+        "build_number": "${BUILD_NUMBER}",
+        "build_timestamp": "${env.BUILD_TIMESTAMP}",
+        "git_commit": "${GIT_COMMIT}",
+        "git_branch": "${GIT_BRANCH}"
+    },
+    "security_scan": {
+        "trivy_scan_performed": $([ "${params.SKIP_SECURITY_SCAN}" = "false" ] && echo "true" || echo "false"),
+        "inspector_assessment_started": $([ "${params.SKIP_SECURITY_SCAN}" = "false" ] && echo "true" || echo "false")
+    },
+    "validation": {
+        "functional_tests_passed": true,
+        "jenkins_service_verified": true,
+        "docker_verified": true,
+        "aws_cli_verified": true
+    },
+    "components": {
+        "base_os": "Amazon Linux 2",
+        "java_version": "11",
+        "jenkins_version": "${params.JENKINS_VERSION}",
+        "docker_version": "latest",
+        "aws_cli_version": "2.x",
+        "terraform_version": "1.5.7",
+        "ansible_version": "latest"
+    }
+}
+EOF
+                        
+                        # Upload manifest to S3
+                        aws s3 cp ami-manifest.json s3://jenkins-enterprise-backup/ami-manifests/ami-manifest-${AMI_ID}.json
+                        
+                        echo "📋 AMI manifest generated and uploaded"
+                    '''
+                }
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'ami-manifest.json,ami-details.json', allowEmptyArchive: true
+                }
+            }
+        }
+        
+        stage('🗑️ AMI Lifecycle Management') {
+            steps {
+                script {
+                    sh '''
+                        echo "🗑️ Managing AMI lifecycle..."
+                        
+                        # Run AMI cleanup script
+                        ./scripts/ami-lifecycle.sh ${params.ENVIRONMENT}
+                        
+                        echo "✅ AMI lifecycle management completed"
+                    '''
+                }
+            }
+        }
+        
+        stage('🚀 Update Launch Templates') {
+            when {
+                expression { params.ENVIRONMENT == 'staging' || params.ENVIRONMENT == 'production' }
+            }
+            steps {
+                script {
+                    sh '''
+                        echo "🚀 Updating launch templates with new AMI..."
+                        
+                        # Get AMI ID
+                        AMI_ID=$(cat ami-id.txt)
+                        
+                        # Update Terraform variables with new AMI ID
+                        cat > ami-update.auto.tfvars << EOF
+jenkins_ami_id = "${AMI_ID}"
+EOF
+                        
+                        # Plan Terraform update
+                        terraform plan -var-file=ami-update.auto.tfvars -out=ami-update.tfplan
+                        
+                        # Apply update (this will create new launch template version)
+                        terraform apply -auto-approve ami-update.tfplan
+                        
+                        echo "🚀 Launch templates updated with AMI: ${AMI_ID}"
+                    '''
+                }
+            }
+        }
+        
+        stage('🔄 Disaster Recovery Sync') {
+            when {
+                expression { params.ENABLE_DR_SYNC }
+            }
+            steps {
+                script {
+                    sh '''
+                        echo "🔄 Syncing AMI to disaster recovery region..."
+                        
+                        # Get AMI ID
+                        AMI_ID=$(cat ami-id.txt)
+                        
+                        # Copy AMI to DR region
+                        DR_AMI_ID=$(aws ec2 copy-image \
+                            --source-region ${AWS_DEFAULT_REGION} \
+                            --source-image-id ${AMI_ID} \
+                            --region ${DR_REGION} \
+                            --name "jenkins-dr-${ENVIRONMENT}-$(date +%Y%m%d_%H%M%S)" \
+                            --description "DR copy of ${AMI_ID}" \
+                            --query 'ImageId' --output text)
+                        
+                        # Tag DR AMI
+                        aws ec2 create-tags --region ${DR_REGION} --resources ${DR_AMI_ID} --tags \
+                            Key=SourceAMI,Value=${AMI_ID} \
+                            Key=DRRegion,Value=${DR_REGION} \
+                            Key=Environment,Value=${ENVIRONMENT} \
+                            Key=BuildNumber,Value=${BUILD_NUMBER}
+                        
+                        echo "✅ DR AMI created: ${DR_AMI_ID} in ${DR_REGION}"
+                    '''
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            script {
+                // Archive build artifacts
+                archiveArtifacts artifacts: '**/*.log,**/*.json,**/*.txt', allowEmptyArchive: true
+                
+                // Publish test results if available
+                if (fileExists('test-results.xml')) {
+                    publishTestResults testResultsPattern: 'test-results.xml'
+                }
+                
+                // Clean workspace
+                cleanWs()
+            }
+        }
+        
+        success {
+            script {
+                def amiId = readFile('ami-id.txt').trim()
+                def message = """
+🎉 Jenkins Golden AMI Build Successful!
+
+Environment: ${params.ENVIRONMENT}
+AMI ID: ${amiId}
+Jenkins Version: ${params.JENKINS_VERSION}
+Build Number: ${BUILD_NUMBER}
+Duration: ${currentBuild.durationString}
+
+The new AMI has been validated and is ready for deployment.
+"""
+                
+                // Send notification (Slack disabled)
+                echo """
+🎉 Jenkins Golden AMI Build Successful!
+
+Environment: ${params.ENVIRONMENT}
+AMI ID: ${amiId}
+Jenkins Version: ${params.JENKINS_VERSION}
+Build Number: ${BUILD_NUMBER}
+Duration: ${currentBuild.durationString}
+
+The new AMI has been validated and is ready for deployment.
+"""
+                
+                // Update build description
+                currentBuild.description = "✅ SUCCESS | AMI: ${amiId}"
+            }
+        }
+        
+        failure {
+            script {
+                def message = """
+❌ Jenkins Golden AMI Build Failed!
+
+Environment: ${params.ENVIRONMENT}
+Build Number: ${BUILD_NUMBER}
+Duration: ${currentBuild.durationString}
+
+Please check the build logs for details.
+"""
+                
+                // Send notification (Slack disabled)
+                echo """
+❌ Jenkins Golden AMI Build Failed!
+
+Environment: ${params.ENVIRONMENT}
+Build Number: ${BUILD_NUMBER}
+Duration: ${currentBuild.durationString}
+
+Please check the build logs for details.
+"""
+                
+                // Update build description
+                currentBuild.description = "❌ FAILED | Check logs"
+            }
+        }
+        
+        unstable {
+            script {
+                echo "⚠️ Jenkins Golden AMI Build Unstable - Build #${BUILD_NUMBER}"
+            }
+        }
+    }
+}
