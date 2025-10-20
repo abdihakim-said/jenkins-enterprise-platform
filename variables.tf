@@ -23,6 +23,12 @@ variable "environment" {
   }
 }
 
+variable "alert_email" {
+  description = "Email address for observability alerts"
+  type        = string
+  default     = "devops@company.com"
+}
+
 variable "owner" {
   description = "Owner of the resources"
   type        = string
