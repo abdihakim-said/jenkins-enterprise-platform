@@ -140,6 +140,42 @@ module "inspector" {
   tags = local.common_tags
 }
 
+# Blue/Green Deployment Module
+module "blue_green_deployment" {
+  source = "./modules/blue-green-deployment"
+
+  project_name         = var.project_name
+  environment          = var.environment
+  vpc_id               = module.vpc.vpc_id
+  private_subnet_ids   = module.vpc.private_subnet_ids
+  security_group_id    = module.security_groups.jenkins_security_group_id
+  iam_instance_profile = module.iam.instance_profile_name
+  target_group_arn     = module.alb.target_group_arn
+  efs_file_system_id   = module.efs.file_system_id
+  efs_dns_name         = module.efs.dns_name
+  
+  # Blue/Green specific configuration
+  instance_type        = var.jenkins_instance_type
+  
+  common_tags = local.common_tags
+}
+
+# Cost-Optimized Observability Module
+# Smart monitoring using existing infrastructure - saves $105/month vs ECS
+module "cost_optimized_observability" {
+  source = "./modules/cost-optimized-observability"
+
+  project_name = var.project_name
+  environment  = var.environment
+  aws_region   = var.aws_region
+  alert_email  = var.alert_email
+
+  depends_on = [
+    module.jenkins,
+    module.alb
+  ]
+}
+
 # Local values
 locals {
   common_tags = {
