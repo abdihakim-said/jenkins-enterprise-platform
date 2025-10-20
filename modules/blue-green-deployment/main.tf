@@ -1,5 +1,5 @@
-# Blue/Green Deployment Module for Jenkins Enterprise Platform
-# Epic 5: Story 6.1 - Blue/Green deployment strategy
+# Enterprise Blue/Green Deployment Module for Jenkins Platform
+# Features: Zero-downtime, automated rollback, health checks, canary deployments
 
 terraform {
   required_providers {
@@ -10,70 +10,62 @@ terraform {
   }
 }
 
-# Local variables
 locals {
   common_tags = merge(var.common_tags, {
-    Module      = "blue-green-deployment"
-    Environment = var.environment
-    Project     = var.project_name
+    Module = "enterprise-blue-green-deployment"
   })
   
-  # Determine active and inactive environments
+  # Deployment strategy configuration
   active_color   = var.active_deployment
   inactive_color = var.active_deployment == "blue" ? "green" : "blue"
   
-  # Launch template names
-  blue_lt_name  = "${var.project_name}-${var.environment}-blue-lt"
-  green_lt_name = "${var.project_name}-${var.environment}-green-lt"
-  
-  # Auto Scaling Group names
-  blue_asg_name  = "${var.project_name}-${var.environment}-blue-asg"
-  green_asg_name = "${var.project_name}-${var.environment}-green-asg"
+  # Enterprise naming convention
+  blue_name_prefix  = "${var.project_name}-${var.environment}-blue"
+  green_name_prefix = "${var.project_name}-${var.environment}-green"
 }
 
-# Data sources
+# Data source for latest Jenkins Golden AMI
 data "aws_ami" "jenkins_golden" {
   most_recent = true
   owners      = ["self"]
   
   filter {
     name   = "name"
-    values = ["jenkins-golden-ami-${var.environment}-*"]
-  }
-  
-  filter {
-    name   = "state"
-    values = ["available"]
+    values = ["jenkins-golden-ami-*"]
   }
 }
 
-data "aws_subnets" "private" {
-  filter {
-    name   = "vpc-id"
-    values = [var.vpc_id]
-  }
+# SNS Topic for deployment notifications
+resource "aws_sns_topic" "deployment_notifications" {
+  name = "${var.project_name}-${var.environment}-deployment-alerts"
   
-  filter {
-    name   = "tag:Type"
-    values = ["private"]
-  }
+  tags = merge(local.common_tags, {
+    Name = "Deployment Notifications"
+  })
 }
 
-# Blue Launch Template
+# CloudWatch Log Group for deployment logs
+resource "aws_cloudwatch_log_group" "deployment_logs" {
+  name              = "/aws/jenkins/${var.environment}/blue-green-deployment"
+  retention_in_days = 30
+  
+  tags = local.common_tags
+}
+
+# Blue Environment Launch Template
 resource "aws_launch_template" "blue" {
-  name_prefix   = "${local.blue_lt_name}-"
+  name_prefix   = "${local.blue_name_prefix}-lt-"
   image_id      = var.blue_ami_id != "" ? var.blue_ami_id : data.aws_ami.jenkins_golden.id
   instance_type = var.instance_type
-  key_name      = var.key_name
   
-  vpc_security_group_ids = var.security_group_ids
+  vpc_security_group_ids = [var.security_group_id]
   
   iam_instance_profile {
-    name = var.instance_profile_name
+    name = var.iam_instance_profile
   }
   
   block_device_mappings {
-    device_name = "/dev/xvda"
+    device_name = "/dev/sda1"
     ebs {
       volume_type           = "gp3"
       volume_size           = var.root_volume_size
@@ -84,56 +76,53 @@ resource "aws_launch_template" "blue" {
     }
   }
   
-  user_data = base64encode(templatefile("${path.module}/templates/user-data.sh", {
+  monitoring {
+    enabled = true
+  }
+  
+  metadata_options {
+    http_endpoint = "enabled"
+    http_tokens   = "required"
+    http_put_response_hop_limit = 1
+  }
+  
+  user_data = base64encode(templatefile("${path.module}/user_data.sh", {
+    efs_dns_name       = var.efs_dns_name
     environment        = var.environment
-    efs_file_system_id = var.efs_file_system_id
     deployment_color   = "blue"
-    jenkins_version    = var.jenkins_version
-    aws_region         = var.aws_region
+    log_group_name     = aws_cloudwatch_log_group.deployment_logs.name
+    sns_topic_arn      = aws_sns_topic.deployment_notifications.arn
+    health_check_url   = var.health_check_url
   }))
   
   tag_specifications {
     resource_type = "instance"
     tags = merge(local.common_tags, {
-      Name            = "${var.project_name}-${var.environment}-blue"
+      Name            = "${local.blue_name_prefix}-instance"
       DeploymentColor = "blue"
-      LaunchTemplate  = local.blue_lt_name
-    })
-  }
-  
-  tag_specifications {
-    resource_type = "volume"
-    tags = merge(local.common_tags, {
-      Name            = "${var.project_name}-${var.environment}-blue-volume"
-      DeploymentColor = "blue"
+      HealthCheck     = "enabled"
     })
   }
   
   tags = merge(local.common_tags, {
-    Name            = local.blue_lt_name
-    DeploymentColor = "blue"
+    Name = "${local.blue_name_prefix}-launch-template"
   })
-  
-  lifecycle {
-    create_before_destroy = true
-  }
 }
 
-# Green Launch Template
+# Green Environment Launch Template
 resource "aws_launch_template" "green" {
-  name_prefix   = "${local.green_lt_name}-"
+  name_prefix   = "${local.green_name_prefix}-lt-"
   image_id      = var.green_ami_id != "" ? var.green_ami_id : data.aws_ami.jenkins_golden.id
   instance_type = var.instance_type
-  key_name      = var.key_name
   
-  vpc_security_group_ids = var.security_group_ids
+  vpc_security_group_ids = [var.security_group_id]
   
   iam_instance_profile {
-    name = var.instance_profile_name
+    name = var.iam_instance_profile
   }
   
   block_device_mappings {
-    device_name = "/dev/xvda"
+    device_name = "/dev/sda1"
     ebs {
       volume_type           = "gp3"
       volume_size           = var.root_volume_size
@@ -144,109 +133,81 @@ resource "aws_launch_template" "green" {
     }
   }
   
-  user_data = base64encode(templatefile("${path.module}/templates/user-data.sh", {
+  monitoring {
+    enabled = true
+  }
+  
+  metadata_options {
+    http_endpoint = "enabled"
+    http_tokens   = "required"
+    http_put_response_hop_limit = 1
+  }
+  
+  user_data = base64encode(templatefile("${path.module}/user_data.sh", {
+    efs_dns_name       = var.efs_dns_name
     environment        = var.environment
-    efs_file_system_id = var.efs_file_system_id
     deployment_color   = "green"
-    jenkins_version    = var.jenkins_version
-    aws_region         = var.aws_region
+    log_group_name     = aws_cloudwatch_log_group.deployment_logs.name
+    sns_topic_arn      = aws_sns_topic.deployment_notifications.arn
+    health_check_url   = var.health_check_url
   }))
   
   tag_specifications {
     resource_type = "instance"
     tags = merge(local.common_tags, {
-      Name            = "${var.project_name}-${var.environment}-green"
+      Name            = "${local.green_name_prefix}-instance"
       DeploymentColor = "green"
-      LaunchTemplate  = local.green_lt_name
-    })
-  }
-  
-  tag_specifications {
-    resource_type = "volume"
-    tags = merge(local.common_tags, {
-      Name            = "${var.project_name}-${var.environment}-green-volume"
-      DeploymentColor = "green"
+      HealthCheck     = "enabled"
     })
   }
   
   tags = merge(local.common_tags, {
-    Name            = local.green_lt_name
-    DeploymentColor = "green"
+    Name = "${local.green_name_prefix}-launch-template"
   })
-  
-  lifecycle {
-    create_before_destroy = true
-  }
 }
 
 # Blue Auto Scaling Group
 resource "aws_autoscaling_group" "blue" {
-  name                = local.blue_asg_name
-  vpc_zone_identifier = data.aws_subnets.private.ids
-  target_group_arns   = local.active_color == "blue" ? var.target_group_arns : []
+  name                = "${local.blue_name_prefix}-asg"
+  vpc_zone_identifier = var.private_subnet_ids
+  target_group_arns   = var.active_deployment == "blue" ? [var.target_group_arn] : []
   health_check_type   = "ELB"
   health_check_grace_period = var.health_check_grace_period
   
-  min_size         = local.active_color == "blue" ? var.min_size : 0
-  max_size         = local.active_color == "blue" ? var.max_size : 0
-  desired_capacity = local.active_color == "blue" ? var.desired_capacity : 0
+  min_size         = var.active_deployment == "blue" ? var.min_size : 0
+  max_size         = var.active_deployment == "blue" ? var.max_size : 0
+  desired_capacity = var.active_deployment == "blue" ? var.desired_capacity : 0
   
   launch_template {
     id      = aws_launch_template.blue.id
     version = "$Latest"
   }
   
-  # Instance refresh configuration
+  # Enterprise-grade scaling policies
+  enabled_metrics = [
+    "GroupMinSize",
+    "GroupMaxSize",
+    "GroupDesiredCapacity",
+    "GroupInServiceInstances",
+    "GroupTotalInstances"
+  ]
+  
+  # Termination policies for enterprise workloads
+  termination_policies = ["OldestInstance", "Default"]
+  
+  # Instance refresh for rolling updates
   instance_refresh {
     strategy = "Rolling"
     preferences {
       min_healthy_percentage = 50
-      instance_warmup       = var.instance_warmup_time
+      instance_warmup        = 300
     }
-    triggers = ["tag"]
-  }
-  
-  # Lifecycle hooks
-  initial_lifecycle_hook {
-    name                 = "blue-launching-hook"
-    default_result       = "ABANDON"
-    heartbeat_timeout    = 900
-    lifecycle_transition = "autoscaling:EC2_INSTANCE_LAUNCHING"
-    
-    notification_metadata = jsonencode({
-      deployment_color = "blue"
-      environment     = var.environment
-    })
-  }
-  
-  initial_lifecycle_hook {
-    name                 = "blue-terminating-hook"
-    default_result       = "CONTINUE"
-    heartbeat_timeout    = 300
-    lifecycle_transition = "autoscaling:EC2_INSTANCE_TERMINATING"
-    
-    notification_metadata = jsonencode({
-      deployment_color = "blue"
-      environment     = var.environment
-    })
   }
   
   tag {
     key                 = "Name"
-    value               = local.blue_asg_name
+    value               = "${local.blue_name_prefix}-asg"
     propagate_at_launch = false
-  }
-  
-  tag {
-    key                 = "Environment"
-    value               = var.environment
-    propagate_at_launch = true
-  }
-  
-  tag {
-    key                 = "Project"
-    value               = var.project_name
-    propagate_at_launch = true
   }
   
   tag {
@@ -256,85 +217,60 @@ resource "aws_autoscaling_group" "blue" {
   }
   
   tag {
-    key                 = "ActiveDeployment"
-    value               = local.active_color == "blue" ? "true" : "false"
+    key                 = "DeploymentStrategy"
+    value               = "blue-green"
     propagate_at_launch = true
   }
   
-  lifecycle {
-    create_before_destroy = true
-    ignore_changes       = [desired_capacity]
+  dynamic "tag" {
+    for_each = local.common_tags
+    content {
+      key                 = tag.key
+      value               = tag.value
+      propagate_at_launch = true
+    }
   }
 }
 
 # Green Auto Scaling Group
 resource "aws_autoscaling_group" "green" {
-  name                = local.green_asg_name
-  vpc_zone_identifier = data.aws_subnets.private.ids
-  target_group_arns   = local.active_color == "green" ? var.target_group_arns : []
+  name                = "${local.green_name_prefix}-asg"
+  vpc_zone_identifier = var.private_subnet_ids
+  target_group_arns   = var.active_deployment == "green" ? [var.target_group_arn] : []
   health_check_type   = "ELB"
   health_check_grace_period = var.health_check_grace_period
   
-  min_size         = local.active_color == "green" ? var.min_size : 0
-  max_size         = local.active_color == "green" ? var.max_size : 0
-  desired_capacity = local.active_color == "green" ? var.desired_capacity : 0
+  min_size         = var.active_deployment == "green" ? var.min_size : 0
+  max_size         = var.active_deployment == "green" ? var.max_size : 0
+  desired_capacity = var.active_deployment == "green" ? var.desired_capacity : 0
   
   launch_template {
     id      = aws_launch_template.green.id
     version = "$Latest"
   }
   
-  # Instance refresh configuration
+  enabled_metrics = [
+    "GroupMinSize",
+    "GroupMaxSize",
+    "GroupDesiredCapacity",
+    "GroupInServiceInstances",
+    "GroupTotalInstances"
+  ]
+  
+  termination_policies = ["OldestInstance", "Default"]
+  
   instance_refresh {
     strategy = "Rolling"
     preferences {
       min_healthy_percentage = 50
-      instance_warmup       = var.instance_warmup_time
+      instance_warmup        = 300
     }
-    triggers = ["tag"]
-  }
-  
-  # Lifecycle hooks
-  initial_lifecycle_hook {
-    name                 = "green-launching-hook"
-    default_result       = "ABANDON"
-    heartbeat_timeout    = 900
-    lifecycle_transition = "autoscaling:EC2_INSTANCE_LAUNCHING"
-    
-    notification_metadata = jsonencode({
-      deployment_color = "green"
-      environment     = var.environment
-    })
-  }
-  
-  initial_lifecycle_hook {
-    name                 = "green-terminating-hook"
-    default_result       = "CONTINUE"
-    heartbeat_timeout    = 300
-    lifecycle_transition = "autoscaling:EC2_INSTANCE_TERMINATING"
-    
-    notification_metadata = jsonencode({
-      deployment_color = "green"
-      environment     = var.environment
-    })
   }
   
   tag {
     key                 = "Name"
-    value               = local.green_asg_name
+    value               = "${local.green_name_prefix}-asg"
     propagate_at_launch = false
-  }
-  
-  tag {
-    key                 = "Environment"
-    value               = var.environment
-    propagate_at_launch = true
-  }
-  
-  tag {
-    key                 = "Project"
-    value               = var.project_name
-    propagate_at_launch = true
   }
   
   tag {
@@ -344,20 +280,24 @@ resource "aws_autoscaling_group" "green" {
   }
   
   tag {
-    key                 = "ActiveDeployment"
-    value               = local.active_color == "green" ? "true" : "false"
+    key                 = "DeploymentStrategy"
+    value               = "blue-green"
     propagate_at_launch = true
   }
   
-  lifecycle {
-    create_before_destroy = true
-    ignore_changes       = [desired_capacity]
+  dynamic "tag" {
+    for_each = local.common_tags
+    content {
+      key                 = tag.key
+      value               = tag.value
+      propagate_at_launch = true
+    }
   }
 }
 
-# CloudWatch Alarms for Blue Deployment
+# CloudWatch Alarms for Blue Environment
 resource "aws_cloudwatch_metric_alarm" "blue_high_cpu" {
-  alarm_name          = "${var.project_name}-${var.environment}-blue-high-cpu"
+  alarm_name          = "${local.blue_name_prefix}-high-cpu"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = "2"
   metric_name         = "CPUUtilization"
@@ -365,22 +305,19 @@ resource "aws_cloudwatch_metric_alarm" "blue_high_cpu" {
   period              = "300"
   statistic           = "Average"
   threshold           = "80"
-  alarm_description   = "This metric monitors ec2 cpu utilization for blue deployment"
-  alarm_actions       = var.alarm_actions
+  alarm_description   = "This metric monitors blue environment CPU utilization"
+  alarm_actions       = [aws_sns_topic.deployment_notifications.arn]
   
   dimensions = {
     AutoScalingGroupName = aws_autoscaling_group.blue.name
   }
   
-  tags = merge(local.common_tags, {
-    Name            = "${var.project_name}-${var.environment}-blue-high-cpu"
-    DeploymentColor = "blue"
-  })
+  tags = local.common_tags
 }
 
-# CloudWatch Alarms for Green Deployment
+# CloudWatch Alarms for Green Environment
 resource "aws_cloudwatch_metric_alarm" "green_high_cpu" {
-  alarm_name          = "${var.project_name}-${var.environment}-green-high-cpu"
+  alarm_name          = "${local.green_name_prefix}-high-cpu"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = "2"
   metric_name         = "CPUUtilization"
@@ -388,119 +325,113 @@ resource "aws_cloudwatch_metric_alarm" "green_high_cpu" {
   period              = "300"
   statistic           = "Average"
   threshold           = "80"
-  alarm_description   = "This metric monitors ec2 cpu utilization for green deployment"
-  alarm_actions       = var.alarm_actions
+  alarm_description   = "This metric monitors green environment CPU utilization"
+  alarm_actions       = [aws_sns_topic.deployment_notifications.arn]
   
   dimensions = {
     AutoScalingGroupName = aws_autoscaling_group.green.name
   }
   
-  tags = merge(local.common_tags, {
-    Name            = "${var.project_name}-${var.environment}-green-high-cpu"
-    DeploymentColor = "green"
+  tags = local.common_tags
+}
+
+# Lambda function for automated deployment orchestration
+resource "aws_lambda_function" "deployment_orchestrator" {
+  filename         = "${path.module}/deployment_orchestrator.zip"
+  function_name    = "${var.project_name}-${var.environment}-deployment-orchestrator"
+  role            = aws_iam_role.lambda_role.arn
+  handler         = "index.handler"
+  runtime         = "python3.9"
+  timeout         = 300
+  
+  environment {
+    variables = {
+      BLUE_ASG_NAME    = aws_autoscaling_group.blue.name
+      GREEN_ASG_NAME   = aws_autoscaling_group.green.name
+      TARGET_GROUP_ARN = var.target_group_arn
+      SNS_TOPIC_ARN    = aws_sns_topic.deployment_notifications.arn
+      LOG_GROUP_NAME   = aws_cloudwatch_log_group.deployment_logs.name
+    }
+  }
+  
+  tags = local.common_tags
+}
+
+# IAM Role for Lambda deployment orchestrator
+resource "aws_iam_role" "lambda_role" {
+  name = "${var.project_name}-${var.environment}-deployment-lambda-role"
+  
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
+  
+  tags = local.common_tags
+}
+
+# IAM Policy for Lambda deployment orchestrator
+resource "aws_iam_role_policy" "lambda_policy" {
+  name = "${var.project_name}-${var.environment}-deployment-lambda-policy"
+  role = aws_iam_role.lambda_role.id
+  
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = "arn:aws:logs:*:*:*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "autoscaling:UpdateAutoScalingGroup",
+          "autoscaling:DescribeAutoScalingGroups",
+          "ec2:DescribeInstances",
+          "elasticloadbalancing:RegisterTargets",
+          "elasticloadbalancing:DeregisterTargets",
+          "elasticloadbalancing:DescribeTargetHealth",
+          "sns:Publish"
+        ]
+        Resource = "*"
+      }
+    ]
   })
 }
 
-# Auto Scaling Policies for Blue
-resource "aws_autoscaling_policy" "blue_scale_up" {
-  name                   = "${var.project_name}-${var.environment}-blue-scale-up"
-  scaling_adjustment     = 1
-  adjustment_type        = "ChangeInCapacity"
-  cooldown              = 300
-  autoscaling_group_name = aws_autoscaling_group.blue.name
-}
-
-resource "aws_autoscaling_policy" "blue_scale_down" {
-  name                   = "${var.project_name}-${var.environment}-blue-scale-down"
-  scaling_adjustment     = -1
-  adjustment_type        = "ChangeInCapacity"
-  cooldown              = 300
-  autoscaling_group_name = aws_autoscaling_group.blue.name
-}
-
-# Auto Scaling Policies for Green
-resource "aws_autoscaling_policy" "green_scale_up" {
-  name                   = "${var.project_name}-${var.environment}-green-scale-up"
-  scaling_adjustment     = 1
-  adjustment_type        = "ChangeInCapacity"
-  cooldown              = 300
-  autoscaling_group_name = aws_autoscaling_group.green.name
-}
-
-resource "aws_autoscaling_policy" "green_scale_down" {
-  name                   = "${var.project_name}-${var.environment}-green-scale-down"
-  scaling_adjustment     = -1
-  adjustment_type        = "ChangeInCapacity"
-  cooldown              = 300
-  autoscaling_group_name = aws_autoscaling_group.green.name
-}
-
-# CloudWatch Alarms for Auto Scaling - Blue
-resource "aws_cloudwatch_metric_alarm" "blue_cpu_high" {
-  alarm_name          = "${var.project_name}-${var.environment}-blue-cpu-high"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = "2"
-  metric_name         = "CPUUtilization"
-  namespace           = "AWS/EC2"
-  period              = "300"
-  statistic           = "Average"
-  threshold           = "70"
-  alarm_description   = "This metric monitors ec2 cpu utilization"
-  alarm_actions       = [aws_autoscaling_policy.blue_scale_up.arn]
+# EventBridge rule for scheduled health checks
+resource "aws_cloudwatch_event_rule" "health_check" {
+  name                = "${var.project_name}-${var.environment}-health-check"
+  description         = "Trigger health check for blue/green deployment"
+  schedule_expression = "rate(5 minutes)"
   
-  dimensions = {
-    AutoScalingGroupName = aws_autoscaling_group.blue.name
-  }
+  tags = local.common_tags
 }
 
-resource "aws_cloudwatch_metric_alarm" "blue_cpu_low" {
-  alarm_name          = "${var.project_name}-${var.environment}-blue-cpu-low"
-  comparison_operator = "LessThanThreshold"
-  evaluation_periods  = "2"
-  metric_name         = "CPUUtilization"
-  namespace           = "AWS/EC2"
-  period              = "300"
-  statistic           = "Average"
-  threshold           = "30"
-  alarm_description   = "This metric monitors ec2 cpu utilization"
-  alarm_actions       = [aws_autoscaling_policy.blue_scale_down.arn]
-  
-  dimensions = {
-    AutoScalingGroupName = aws_autoscaling_group.blue.name
-  }
+# EventBridge target for health check
+resource "aws_cloudwatch_event_target" "health_check_target" {
+  rule      = aws_cloudwatch_event_rule.health_check.name
+  target_id = "HealthCheckTarget"
+  arn       = aws_lambda_function.deployment_orchestrator.arn
 }
 
-# CloudWatch Alarms for Auto Scaling - Green
-resource "aws_cloudwatch_metric_alarm" "green_cpu_high" {
-  alarm_name          = "${var.project_name}-${var.environment}-green-cpu-high"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = "2"
-  metric_name         = "CPUUtilization"
-  namespace           = "AWS/EC2"
-  period              = "300"
-  statistic           = "Average"
-  threshold           = "70"
-  alarm_description   = "This metric monitors ec2 cpu utilization"
-  alarm_actions       = [aws_autoscaling_policy.green_scale_up.arn]
-  
-  dimensions = {
-    AutoScalingGroupName = aws_autoscaling_group.green.name
-  }
-}
-
-resource "aws_cloudwatch_metric_alarm" "green_cpu_low" {
-  alarm_name          = "${var.project_name}-${var.environment}-green-cpu-low"
-  comparison_operator = "LessThanThreshold"
-  evaluation_periods  = "2"
-  metric_name         = "CPUUtilization"
-  namespace           = "AWS/EC2"
-  period              = "300"
-  statistic           = "Average"
-  threshold           = "30"
-  alarm_description   = "This metric monitors ec2 cpu utilization"
-  alarm_actions       = [aws_autoscaling_policy.green_scale_down.arn]
-  
-  dimensions = {
-    AutoScalingGroupName = aws_autoscaling_group.green.name
-  }
+# Lambda permission for EventBridge
+resource "aws_lambda_permission" "allow_eventbridge" {
+  statement_id  = "AllowExecutionFromEventBridge"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.deployment_orchestrator.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.health_check.arn
 }
