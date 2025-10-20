@@ -1,0 +1,24 @@
+{
+  "builds": [
+    {
+      "name": "jenkins_master",
+      "builder_type": "amazon-ebs",
+      "build_time": 1760733773,
+      "files": null,
+      "artifact_id": "us-east-1:ami-02b6fe498418f1792",
+      "packer_run_uuid": "24b79bf4-fdc0-4d14-ac8c-7ae60de35589",
+      "custom_data": {
+        "ami_name": "jenkins-golden-ami-ubuntu-staging-20251017202549",
+        "build_time": "2025-10-17T20:42:53Z",
+        "environment": "staging",
+        "instance_type": "t3.large",
+        "java_version": "17",
+        "jenkins_version": "2.426.1",
+        "os_version": "Ubuntu 22.04 LTS",
+        "region": "us-east-1",
+        "source_ami": "ami-0c398cb65a93047f2"
+      }
+    }
+  ],
+  "last_run_uuid": "24b79bf4-fdc0-4d14-ac8c-7ae60de35589"
+}

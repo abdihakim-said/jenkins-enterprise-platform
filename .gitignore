@@ -2,46 +2,59 @@
 *.tfstate
 *.tfstate.*
 *.tfvars
+!terraform.tfvars.example
 .terraform/
 .terraform.lock.hcl
-tfplan*
-crash.log
-crash.*.log
+terraform.tfplan
+*.tfplan
 
-# Packer
-packer_cache/
-*.box
-manifest.json
-
-# AWS & Jenkins
-jenkins-key*
+# AWS
+.aws/
 *.pem
-*.jar
-*.log
+*.key
 
-# IDE & OS
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+
+# OS
 .DS_Store
 Thumbs.db
 
-# Build artifacts
-ami-id.txt
-new-ami-id.txt
-packer-build.log
-golden-ami-build.log
-ami-report.json
+# Logs
+*.log
+logs/
 
 # Temporary files
 *.tmp
 *.temp
-temp/
-tmp/
+*.bak
+*.backup
 
-# Secrets
-secrets.yml
+# Archive directory
+archive/
+
+# Packer
+packer_cache/
+*.box
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
 .env
-.env.local
+
+# Node modules (if any)
+node_modules/
+
+# Sensitive files
+secrets/
+private/
+*.secret
