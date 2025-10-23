@@ -139,17 +139,9 @@ pipeline {
                     sh '''
                         echo "🏗️ Preparing infrastructure for AMI building..."
                         
-                        # Clone/copy the Terraform project to workspace
-                        git clone https://github.com/abdihakimsaid/jenkins-enterprise-platform.git . || \
-                        cp -r /opt/jenkins-enterprise-platform/* . || \
-                        echo "Copying Terraform files from local system"
-                        
-                        # Copy essential files from the main project directory
-                        cp /Users/abdihakimsaid/sandbox/jenkins-enterprise-platform/backend.tf .
-                        cp /Users/abdihakimsaid/sandbox/jenkins-enterprise-platform/outputs.tf .
-                        cp /Users/abdihakimsaid/sandbox/jenkins-enterprise-platform/variables.tf .
-                        cp /Users/abdihakimsaid/sandbox/jenkins-enterprise-platform/main.tf .
-                        cp -r /Users/abdihakimsaid/sandbox/jenkins-enterprise-platform/modules .
+                        # Clone the Terraform project
+                        git clone https://github.com/abdihakimsaid/jenkins-enterprise-platform.git terraform-project
+                        cd terraform-project
                         
                         # Initialize Terraform with remote state
                         terraform init
