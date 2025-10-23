@@ -139,17 +139,11 @@ pipeline {
                     sh '''
                         echo "🏗️ Preparing infrastructure for AMI building..."
                         
-                        # Use checkout to get the current repository (already available)
-                        # The Jenkinsfile is already pulled from git, so files are available
-                        
-                        # Initialize Terraform with remote state
-                        terraform init
-                        
-                        # Get infrastructure values from remote state
-                        export VPC_ID=\$(terraform output -raw vpc_id)
-                        export SUBNET_ID=\$(terraform output -raw public_subnet_ids | cut -d',' -f1)
-                        export SECURITY_GROUP_ID=\$(terraform output -raw jenkins_security_group_id)
-                        export EFS_FILE_SYSTEM_ID=\$(terraform output -raw efs_file_system_id)
+                        # Get infrastructure values using AWS CLI directly
+                        export VPC_ID=\$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=dev-jenkins-enterprise-platform-vpc" --query 'Vpcs[0].VpcId' --output text)
+                        export SUBNET_ID=\$(aws ec2 describe-subnets --filters "Name=tag:Name,Values=dev-jenkins-enterprise-platform-public-subnet-1" --query 'Subnets[0].SubnetId' --output text)
+                        export SECURITY_GROUP_ID=\$(aws ec2 describe-security-groups --filters "Name=tag:Name,Values=dev-jenkins-enterprise-platform-jenkins-sg" --query 'SecurityGroups[0].GroupId' --output text)
+                        export EFS_FILE_SYSTEM_ID=\$(aws efs describe-file-systems --query 'FileSystems[?Tags[?Key==\`Name\` && Value==\`dev-jenkins-enterprise-platform-efs\`]].FileSystemId' --output text)
                         
                         echo "VPC ID: \${VPC_ID}"
                         echo "Subnet ID: \${SUBNET_ID}"
