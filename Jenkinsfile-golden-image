@@ -152,18 +152,18 @@ pipeline {
                         
                         # Create Packer variables file
                         mkdir -p packer
-                        cat > packer/terraform.auto.pkrvars.hcl << EOF
-aws_region = "${AWS_DEFAULT_REGION}"
-environment = "${params.ENVIRONMENT}"
-instance_type = "${params.INSTANCE_TYPE}"
-jenkins_version = "${params.JENKINS_VERSION}"
-vpc_id = "${VPC_ID}"
-subnet_id = "${SUBNET_ID}"
-security_group_id = "${SECURITY_GROUP_ID}"
-efs_file_system_id = "${EFS_FILE_SYSTEM_ID}"
-ami_name_prefix = "${env.AMI_NAME_PREFIX}"
-project_name = "jenkins-enterprise-platform"
+                        cat > packer/terraform.auto.pkrvars.hcl << 'EOF'
+aws_region = "us-east-1"
+environment = "staging"
+instance_type = "t3.medium"
+jenkins_version = "2.426.1"
 EOF
+                        echo "vpc_id = \"\${VPC_ID}\"" >> packer/terraform.auto.pkrvars.hcl
+                        echo "subnet_id = \"\${SUBNET_ID}\"" >> packer/terraform.auto.pkrvars.hcl
+                        echo "security_group_id = \"\${SECURITY_GROUP_ID}\"" >> packer/terraform.auto.pkrvars.hcl
+                        echo "efs_file_system_id = \"\${EFS_FILE_SYSTEM_ID}\"" >> packer/terraform.auto.pkrvars.hcl
+                        echo 'ami_name_prefix = "jenkins-golden-ami"' >> packer/terraform.auto.pkrvars.hcl
+                        echo 'project_name = "jenkins-enterprise-platform"' >> packer/terraform.auto.pkrvars.hcl
                     '''
                 }
             }
