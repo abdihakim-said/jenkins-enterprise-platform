@@ -19,10 +19,15 @@ data "aws_ami" "jenkins_golden" {
 
 data "aws_region" "current" {}
 
+# Get SSH public key from Systems Manager
+data "aws_ssm_parameter" "jenkins_public_key" {
+  name = "/jenkins/ssh-public-key"
+}
+
 # Key Pair
 resource "aws_key_pair" "jenkins" {
   key_name   = "${var.environment}-${replace(lower(var.project_name), " ", "-")}-key"
-  public_key = file("${path.root}/archive/jenkins-key.pub")
+  public_key = data.aws_ssm_parameter.jenkins_public_key.value
 
   tags = merge(var.tags, {
     Name = "${var.environment}-${replace(lower(var.project_name), " ", "-")}-key"
