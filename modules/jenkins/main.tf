@@ -22,7 +22,7 @@ data "aws_region" "current" {}
 # Key Pair
 resource "aws_key_pair" "jenkins" {
   key_name   = "${var.environment}-${replace(lower(var.project_name), " ", "-")}-key"
-  public_key = file("${path.root}/jenkins-key.pub")
+  public_key = file("${path.root}/archive/jenkins-key.pub")
 
   tags = merge(var.tags, {
     Name = "${var.environment}-${replace(lower(var.project_name), " ", "-")}-key"
@@ -50,7 +50,7 @@ resource "aws_launch_template" "jenkins" {
   block_device_mappings {
     device_name = "/dev/sda1"
     ebs {
-      volume_size           = 30
+      volume_size           = 50
       volume_type           = "gp3"
       iops                  = 3000
       throughput            = 125

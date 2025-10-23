@@ -183,7 +183,7 @@ resource "aws_cloudwatch_log_metric_filter" "jenkins_job_failure" {
 
 # Data sources
 data "aws_lb" "jenkins" {
-  name = "${var.project_name}-${var.environment}-alb"
+  name = "${var.environment}-jenkins-alb"
 }
 
 resource "random_id" "bucket_suffix" {

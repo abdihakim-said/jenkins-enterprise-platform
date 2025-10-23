@@ -82,6 +82,12 @@ variable "health_check_grace_period" {
   default     = 900
 }
 
+variable "jenkins_ami_id" {
+  description = "Specific AMI ID to use (overrides Golden AMI lookup)"
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)

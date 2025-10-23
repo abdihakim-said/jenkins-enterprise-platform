@@ -8,13 +8,15 @@ echo "=== Enterprise Security Hardening Started ==="
 
 # 1. SYSTEM HARDENING
 echo "=== System Hardening ==="
-# Remove attack surface
+# Remove attack surface (excluding nfs-common and rpcbind needed for EFS)
 sudo apt purge -y \
     telnet rsh-client talk finger \
     xinetd openbsd-inetd \
-    nis rpcbind \
+    nis \
     avahi-daemon cups bluetooth \
     whoopsie apport 2>/dev/null || true
+
+# Note: Keeping nfs-common and rpcbind for EFS support
 
 # Disable unused filesystems
 sudo tee /etc/modprobe.d/blacklist-rare-filesystems.conf << 'EOF'

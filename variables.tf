@@ -83,6 +83,18 @@ variable "health_check_grace_period" {
   type        = number
 }
 
+variable "jenkins_ami_id" {
+  description = "Specific Jenkins AMI ID to use (overrides Golden AMI lookup)"
+  type        = string
+  default     = ""
+}
+
+variable "golden_ami_id" {
+  description = "Golden AMI ID for Jenkins instances"
+  type        = string
+  default     = ""
+}
+
 # Optional Configuration
 variable "single_nat_gateway" {
   description = "Use single NAT gateway for cost optimization"

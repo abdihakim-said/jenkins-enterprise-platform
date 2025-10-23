@@ -32,7 +32,14 @@ sudo apt install -y \
     python3 \
     python3-pip \
     build-essential \
+    binutils \
     openjdk-17-jdk
+
+# Install NFS client for EFS mounting
+echo "=== Installing NFS client for EFS ==="
+sudo systemctl enable rpcbind
+sudo systemctl start rpcbind
+echo "✅ NFS client configured"
 
 # Set JAVA_HOME
 echo 'export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64' | sudo tee -a /etc/environment

@@ -163,8 +163,10 @@ build {
     script = "${path.root}/scripts/setup.sh"
   }
   
-  # Enterprise Jenkins setup completed via shell script above
-  # This approach is more reliable and follows industry best practices
+  # Prepare EFS mounting capabilities
+  provisioner "shell" {
+    script = "${path.root}/scripts/prepare-efs.sh"
+  }
   
   # Security hardening
   provisioner "shell" {
@@ -188,9 +190,11 @@ build {
       "aws --version", 
       "terraform --version",
       "packer --version",
+      "echo 'Validating EFS utils installation...'",
+      "mount.nfs4 --version || (echo 'EFS utils validation failed' && exit 1)",
       "trivy --version",
       "kubectl version --client",
-      "echo 'Validation completed successfully'"
+      "echo '✅ All validations passed'"
     ]
   }
   

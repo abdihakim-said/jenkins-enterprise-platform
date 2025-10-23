@@ -1,5 +1,5 @@
 #!/bin/bash
-# Jenkins Golden AMI User Data Script - Fixed Version
+# Jenkins User Data - Runtime EFS Mount with Error Handling
 
 set -e
 
@@ -12,91 +12,123 @@ ENVIRONMENT="${environment}"
 exec > >(tee /var/log/user-data.log)
 exec 2>&1
 
-echo "=== Jenkins Golden AMI User Data Started ==="
-echo "EFS File System ID: $EFS_FILE_SYSTEM_ID"
-echo "AWS Region: $AWS_REGION"
+echo "=== Jenkins User Data Started ==="
+echo "EFS ID: $EFS_FILE_SYSTEM_ID"
+echo "Region: $AWS_REGION"
 echo "Environment: $ENVIRONMENT"
-echo "Instance ID: $(curl -s http://169.254.169.254/latest/meta-data/instance-id)"
-echo "Timestamp: $(date)"
 
-# Install missing packages
-echo "=== Installing required packages ==="
-apt update -y
-apt install -y amazon-efs-utils
+# Install EFS utils if not present (fallback)
+install_efs_utils() {
+    echo "=== Installing EFS Utils ==="
+    if ! command -v mount.efs &> /dev/null; then
+        apt-get update -y
+        apt-get install -y nfs-common
+        echo "✅ NFS utils installed"
+    else
+        echo "✅ EFS utils already available"
+    fi
+}
 
-# Check if Jenkins user exists, create if not
+# Enhanced EFS Mount Function with Error Handling
+mount_efs() {
+    local efs_id=$1
+    local region=$2
+    local mount_point="/var/lib/jenkins"
+    
+    echo "=== Mounting EFS with Error Handling ==="
+    
+    # Stop Jenkins safely
+    if systemctl is-active --quiet jenkins; then
+        echo "Stopping Jenkins service..."
+        systemctl stop jenkins
+        sleep 5
+    fi
+    
+    # Backup existing data
+    if [ -d "$mount_point" ] && [ "$(ls -A $mount_point 2>/dev/null)" ]; then
+        echo "Backing up existing Jenkins data..."
+        mkdir -p /tmp/jenkins-backup
+        cp -r $mount_point/* /tmp/jenkins-backup/ 2>/dev/null || true
+    fi
+    
+    # Create mount point
+    mkdir -p $mount_point
+    
+    # Try multiple mount methods with error handling
+    local mount_success=false
+    
+    # Method 1: NFS4 mount
+    echo "Attempting NFS4 mount..."
+    if timeout 30 mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2 \
+        $efs_id.efs.$region.amazonaws.com:/ $mount_point 2>/dev/null; then
+        echo "✅ EFS mounted via NFS4"
+        mount_success=true
+    else
+        echo "⚠️ NFS4 mount failed, trying EFS utils..."
+        
+        # Method 2: EFS utils mount
+        if command -v mount.efs &> /dev/null; then
+            if timeout 30 mount -t efs -o tls $efs_id:/ $mount_point 2>/dev/null; then
+                echo "✅ EFS mounted via EFS utils"
+                mount_success=true
+            else
+                echo "⚠️ EFS utils mount failed"
+            fi
+        else
+            echo "⚠️ EFS utils not available"
+        fi
+    fi
+    
+    if [ "$mount_success" = true ]; then
+        # Add to fstab for persistence
+        if ! grep -q "$efs_id" /etc/fstab; then
+            echo "$efs_id.efs.$region.amazonaws.com:/ $mount_point nfs4 nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,_netdev 0 0" >> /etc/fstab
+        fi
+        
+        # Restore data if EFS is empty
+        if [ -d "/tmp/jenkins-backup" ] && [ -z "$(ls -A $mount_point 2>/dev/null)" ]; then
+            echo "Restoring Jenkins data to EFS..."
+            cp -r /tmp/jenkins-backup/* $mount_point/ 2>/dev/null || true
+        fi
+        
+        # Cleanup backup
+        rm -rf /tmp/jenkins-backup
+        
+        echo "✅ EFS mount successful"
+    else
+        echo "❌ All EFS mount methods failed, using local storage"
+        mkdir -p $mount_point
+        
+        # Restore backup to local storage
+        if [ -d "/tmp/jenkins-backup" ]; then
+            echo "Restoring Jenkins data to local storage..."
+            cp -r /tmp/jenkins-backup/* $mount_point/ 2>/dev/null || true
+            rm -rf /tmp/jenkins-backup
+        fi
+        
+        echo "⚠️ Jenkins will use local storage - data will not persist across instance replacements"
+    fi
+    
+    # Set proper permissions
+    chown -R jenkins:jenkins $mount_point
+    chmod 755 $mount_point
+}
+
+# Create Jenkins user if needed
 if ! id "jenkins" &>/dev/null; then
-    echo "Creating jenkins user..."
+    echo "Creating Jenkins user..."
     useradd -r -m -s /bin/bash jenkins
 fi
 
-# Stop Jenkins if running to safely move data
-systemctl stop jenkins || true
+# Install EFS utils as fallback
+install_efs_utils
 
 # Mount EFS if provided
-if [ -n "$EFS_FILE_SYSTEM_ID" ]; then
-    echo "=== Mounting EFS file system ==="
-    
-    # Create temporary mount point
-    mkdir -p /mnt/efs-temp
-    
-    # Mount EFS temporarily to set up directories
-    mount -t efs $EFS_FILE_SYSTEM_ID.efs.$AWS_REGION.amazonaws.com:/ /mnt/efs-temp
-    
-    if mountpoint -q /mnt/efs-temp; then
-        echo "✅ EFS mounted successfully"
-        
-        # Create Jenkins directories on EFS
-        mkdir -p /mnt/efs-temp/jenkins
-        mkdir -p /mnt/efs-temp/workspace
-        
-        # Set proper ownership
-        chown -R jenkins:jenkins /mnt/efs-temp/jenkins
-        chown -R jenkins:jenkins /mnt/efs-temp/workspace
-        
-        # Unmount temporary mount
-        umount /mnt/efs-temp
-        
-        # Create Jenkins home directory if it doesn't exist
-        mkdir -p /var/lib/jenkins
-        
-        # Backup existing Jenkins data if any
-        if [ -d /var/lib/jenkins ] && [ "$(ls -A /var/lib/jenkins)" ]; then
-            echo "Backing up existing Jenkins data..."
-            mv /var/lib/jenkins /var/lib/jenkins.backup.$(date +%s)
-        fi
-        
-        # Create new Jenkins home directory
-        mkdir -p /var/lib/jenkins
-        mkdir -p /var/lib/jenkins/workspace
-        
-        # Add EFS mounts to fstab
-        if ! grep -q "$EFS_FILE_SYSTEM_ID.*jenkins" /etc/fstab; then
-            echo "$EFS_FILE_SYSTEM_ID.efs.$AWS_REGION.amazonaws.com:/jenkins /var/lib/jenkins efs defaults,_netdev,accesspoint=fsap-0d3b5b40f354f4bb9 0 0" >> /etc/fstab
-            echo "$EFS_FILE_SYSTEM_ID.efs.$AWS_REGION.amazonaws.com:/workspace /var/lib/jenkins/workspace efs defaults,_netdev,accesspoint=fsap-09bbc067252dafab4 0 0" >> /etc/fstab
-        fi
-        
-        # Mount EFS to Jenkins directories
-        mount -a
-        
-        # Verify mounts
-        if mountpoint -q /var/lib/jenkins && mountpoint -q /var/lib/jenkins/workspace; then
-            echo "✅ Jenkins EFS directories mounted successfully"
-            chown -R jenkins:jenkins /var/lib/jenkins
-        else
-            echo "❌ EFS mount to Jenkins directories failed"
-        fi
-    else
-        echo "❌ EFS mount failed"
-        # Ensure local directories exist as fallback
-        mkdir -p /var/lib/jenkins
-        mkdir -p /var/lib/jenkins/workspace
-        chown -R jenkins:jenkins /var/lib/jenkins
-    fi
+if [ -n "$EFS_FILE_SYSTEM_ID" ] && [ "$EFS_FILE_SYSTEM_ID" != "null" ]; then
+    mount_efs "$EFS_FILE_SYSTEM_ID" "$AWS_REGION"
 else
-    # Ensure Jenkins directories exist
+    echo "No EFS ID provided, using local storage"
     mkdir -p /var/lib/jenkins
-    mkdir -p /var/lib/jenkins/workspace
     chown -R jenkins:jenkins /var/lib/jenkins
 fi
 
@@ -109,34 +141,55 @@ echo "=== Starting Jenkins ==="
 systemctl enable jenkins
 systemctl start jenkins
 
-# Wait for Jenkins to start
+# Wait for Jenkins to start with better error handling
 echo "=== Waiting for Jenkins to start ==="
-timeout=600  # Increased timeout
+timeout=300
 counter=0
+jenkins_started=false
+
 while [ $counter -lt $timeout ]; do
-    if curl -s http://localhost:8080/login > /dev/null 2>&1; then
-        echo "✅ Jenkins is running and responding"
-        break
+    if systemctl is-active --quiet jenkins; then
+        if curl -s --connect-timeout 5 http://localhost:8080/login > /dev/null 2>&1; then
+            echo "✅ Jenkins is running and responding"
+            jenkins_started=true
+            break
+        fi
     fi
     echo "Waiting for Jenkins... ($counter/$timeout)"
-    sleep 15
-    counter=$((counter + 15))
+    sleep 10
+    counter=$((counter + 10))
 done
 
-if [ $counter -ge $timeout ]; then
+if [ "$jenkins_started" = false ]; then
     echo "❌ Jenkins failed to start within timeout"
+    echo "=== Diagnostics ==="
     echo "Jenkins service status:"
-    systemctl status jenkins --no-pager
-    echo "Jenkins logs:"
-    journalctl -u jenkins --no-pager -n 50
+    systemctl status jenkins --no-pager || true
+    echo "Jenkins logs (last 50 lines):"
+    journalctl -u jenkins --no-pager -n 50 || true
+    echo "Port 8080 status:"
+    netstat -tlnp | grep :8080 || echo "Port 8080 not listening"
+    echo "Jenkins process:"
+    pgrep -f jenkins || echo "No Jenkins process found"
 fi
 
 # Final health check
 echo "=== Final Health Check ==="
-echo "Jenkins service status: $(systemctl is-active jenkins)"
-echo "Jenkins process: $(pgrep -f jenkins || echo 'Not running')"
-echo "Port 8080 status: $(netstat -tlnp | grep :8080 || echo 'Not listening')"
+echo "Jenkins service status: $(systemctl is-active jenkins 2>/dev/null || echo 'inactive')"
+echo "Jenkins process: $(pgrep -f jenkins 2>/dev/null || echo 'Not running')"
+echo "Port 8080 status: $(netstat -tlnp 2>/dev/null | grep :8080 || echo 'Not listening')"
 echo "Jenkins HTTP response: $(curl -s -o /dev/null -w '%%{http_code}' http://localhost:8080/login 2>/dev/null || echo 'Failed')"
+
+# EFS mount verification
+if [ -n "$EFS_FILE_SYSTEM_ID" ] && [ "$EFS_FILE_SYSTEM_ID" != "null" ]; then
+    echo "=== EFS Mount Verification ==="
+    if mountpoint -q /var/lib/jenkins; then
+        echo "✅ EFS is mounted at /var/lib/jenkins"
+        echo "Mount details: $(mount | grep /var/lib/jenkins)"
+    else
+        echo "⚠️ EFS is not mounted, using local storage"
+    fi
+fi
 
 # Install and configure CloudWatch agent
 echo "=== Installing CloudWatch Agent ==="
@@ -147,7 +200,7 @@ if ! command -v /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl
 fi
 
 # Configure CloudWatch agent
-cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json << 'EOF'
+cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json << EOF
 {
     "agent": {
         "metrics_collection_interval": 60,
@@ -159,13 +212,13 @@ cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json << 'EOF'
                 "collect_list": [
                     {
                         "file_path": "/var/log/user-data.log",
-                        "log_group_name": "/jenkins/dev/user-data",
+                        "log_group_name": "/jenkins/${environment}/user-data",
                         "log_stream_name": "{instance_id}",
                         "timezone": "UTC"
                     },
                     {
                         "file_path": "/var/log/jenkins/jenkins.log",
-                        "log_group_name": "/jenkins/dev/application",
+                        "log_group_name": "/jenkins/${environment}/application",
                         "log_stream_name": "{instance_id}",
                         "timezone": "UTC"
                     }
@@ -180,6 +233,7 @@ EOF
 systemctl enable amazon-cloudwatch-agent
 systemctl start amazon-cloudwatch-agent
 
-echo "=== Jenkins Golden AMI User Data Completed ==="
+echo "=== Jenkins User Data Completed ==="
 echo "Timestamp: $(date)"
+echo "Status: $([ "$jenkins_started" = true ] && echo "SUCCESS" || echo "PARTIAL - Jenkins may need manual intervention")"
 touch /var/log/user-data-completed

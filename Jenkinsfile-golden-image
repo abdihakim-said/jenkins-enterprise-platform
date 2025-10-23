@@ -112,7 +112,6 @@ pipeline {
                                 packer version
                                 terraform version
                                 trivy version
-                                ansible --version
                                 docker --version
                             '''
                         }
@@ -140,18 +139,34 @@ pipeline {
                     sh '''
                         echo "🏗️ Preparing infrastructure for AMI building..."
                         
-                        # Get VPC and subnet information
-                        export VPC_ID=$(terraform output -raw vpc_id 2>/dev/null || echo "")
-                        export SUBNET_ID=$(terraform output -raw public_subnet_ids 2>/dev/null | cut -d',' -f1 || echo "")
-                        export SECURITY_GROUP_ID=$(terraform output -raw jenkins_security_group_id 2>/dev/null || echo "")
-                        export EFS_FILE_SYSTEM_ID=$(terraform output -raw efs_file_system_id 2>/dev/null || echo "")
+                        # Clone/copy the Terraform project to workspace
+                        git clone https://github.com/abdihakimsaid/jenkins-enterprise-platform.git . || \
+                        cp -r /opt/jenkins-enterprise-platform/* . || \
+                        echo "Copying Terraform files from local system"
                         
-                        echo "VPC ID: ${VPC_ID}"
-                        echo "Subnet ID: ${SUBNET_ID}"
-                        echo "Security Group ID: ${SECURITY_GROUP_ID}"
-                        echo "EFS File System ID: ${EFS_FILE_SYSTEM_ID}"
+                        # Copy essential files from the main project directory
+                        cp /Users/abdihakimsaid/sandbox/jenkins-enterprise-platform/backend.tf .
+                        cp /Users/abdihakimsaid/sandbox/jenkins-enterprise-platform/outputs.tf .
+                        cp /Users/abdihakimsaid/sandbox/jenkins-enterprise-platform/variables.tf .
+                        cp /Users/abdihakimsaid/sandbox/jenkins-enterprise-platform/main.tf .
+                        cp -r /Users/abdihakimsaid/sandbox/jenkins-enterprise-platform/modules .
+                        
+                        # Initialize Terraform with remote state
+                        terraform init
+                        
+                        # Get infrastructure values from remote state
+                        export VPC_ID=\$(terraform output -raw vpc_id)
+                        export SUBNET_ID=\$(terraform output -raw public_subnet_ids | cut -d',' -f1)
+                        export SECURITY_GROUP_ID=\$(terraform output -raw jenkins_security_group_id)
+                        export EFS_FILE_SYSTEM_ID=\$(terraform output -raw efs_file_system_id)
+                        
+                        echo "VPC ID: \${VPC_ID}"
+                        echo "Subnet ID: \${SUBNET_ID}"
+                        echo "Security Group ID: \${SECURITY_GROUP_ID}"
+                        echo "EFS File System ID: \${EFS_FILE_SYSTEM_ID}"
                         
                         # Create Packer variables file
+                        mkdir -p packer
                         cat > packer/terraform.auto.pkrvars.hcl << EOF
 aws_region = "${AWS_DEFAULT_REGION}"
 environment = "${params.ENVIRONMENT}"
@@ -462,8 +477,7 @@ EOF
         "jenkins_version": "${params.JENKINS_VERSION}",
         "docker_version": "latest",
         "aws_cli_version": "2.x",
-        "terraform_version": "1.5.7",
-        "ansible_version": "latest"
+        "terraform_version": "1.5.7"
     }
 }
 EOF

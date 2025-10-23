@@ -18,7 +18,45 @@
         "region": "us-east-1",
         "source_ami": "ami-0c398cb65a93047f2"
       }
+    },
+    {
+      "name": "jenkins_master",
+      "builder_type": "amazon-ebs",
+      "build_time": 1761186903,
+      "files": null,
+      "artifact_id": "us-east-1:ami-04771093a4cde35a4",
+      "packer_run_uuid": "fd6fa758-0ae0-0949-6412-1c2b781fd995",
+      "custom_data": {
+        "ami_name": "jenkins-golden-ami-ubuntu-dev-20251023021840",
+        "build_time": "2025-10-23T02:35:03Z",
+        "environment": "dev",
+        "instance_type": "t3.large",
+        "java_version": "17",
+        "jenkins_version": "2.426.1",
+        "os_version": "Ubuntu 22.04 LTS",
+        "region": "us-east-1",
+        "source_ami": "ami-0c398cb65a93047f2"
+      }
+    },
+    {
+      "name": "jenkins_master",
+      "builder_type": "amazon-ebs",
+      "build_time": 1761193425,
+      "files": null,
+      "artifact_id": "us-east-1:ami-0fc6ea644825c7b6d",
+      "packer_run_uuid": "43893314-c3af-1620-c96e-17a2f4a89f69",
+      "custom_data": {
+        "ami_name": "jenkins-golden-ami-ubuntu-staging-20251023040709",
+        "build_time": "2025-10-23T04:23:45Z",
+        "environment": "staging",
+        "instance_type": "t3.large",
+        "java_version": "17",
+        "jenkins_version": "2.426.1",
+        "os_version": "Ubuntu 22.04 LTS",
+        "region": "us-east-1",
+        "source_ami": "ami-0c398cb65a93047f2"
+      }
     }
   ],
-  "last_run_uuid": "24b79bf4-fdc0-4d14-ac8c-7ae60de35589"
+  "last_run_uuid": "43893314-c3af-1620-c96e-17a2f4a89f69"
 }
