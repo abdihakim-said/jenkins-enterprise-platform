@@ -67,6 +67,9 @@ pipeline {
                     // Clean workspace
                     cleanWs()
                     
+                    // Checkout the repository to get Packer files
+                    checkout scm
+                    
                     // Set build description
                     currentBuild.description = "Environment: ${params.ENVIRONMENT} | Instance: ${params.INSTANCE_TYPE}"
                     
