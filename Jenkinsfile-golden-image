@@ -139,9 +139,8 @@ pipeline {
                     sh '''
                         echo "🏗️ Preparing infrastructure for AMI building..."
                         
-                        # Clone the Terraform project
-                        git clone https://github.com/abdihakimsaid/jenkins-enterprise-platform.git terraform-project
-                        cd terraform-project
+                        # Use checkout to get the current repository (already available)
+                        # The Jenkinsfile is already pulled from git, so files are available
                         
                         # Initialize Terraform with remote state
                         terraform init
