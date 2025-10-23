@@ -44,7 +44,7 @@ module "vpc" {
   availability_zones   = data.aws_availability_zones.available.names
   public_subnet_cidrs  = var.public_subnet_cidrs
   private_subnet_cidrs = var.private_subnet_cidrs
-  
+
   tags = local.common_tags
 }
 
@@ -56,7 +56,7 @@ module "security_groups" {
   environment  = var.environment
   vpc_id       = module.vpc.vpc_id
   vpc_cidr     = var.vpc_cidr
-  
+
   tags = local.common_tags
 }
 
@@ -66,7 +66,7 @@ module "iam" {
 
   project_name = var.project_name
   environment  = var.environment
-  
+
   tags = local.common_tags
 }
 
@@ -79,7 +79,7 @@ module "efs" {
   vpc_id             = module.vpc.vpc_id
   private_subnet_ids = module.vpc.private_subnet_ids
   security_group_id  = module.security_groups.efs_security_group_id
-  
+
   tags = local.common_tags
 }
 
@@ -87,12 +87,12 @@ module "efs" {
 module "alb" {
   source = "./modules/alb"
 
-  project_name       = var.project_name
-  environment        = var.environment
-  vpc_id             = module.vpc.vpc_id
-  public_subnet_ids  = module.vpc.public_subnet_ids
-  security_group_id  = module.security_groups.alb_security_group_id
-  
+  project_name      = var.project_name
+  environment       = var.environment
+  vpc_id            = module.vpc.vpc_id
+  public_subnet_ids = module.vpc.public_subnet_ids
+  security_group_id = module.security_groups.alb_security_group_id
+
   tags = local.common_tags
 }
 
@@ -100,23 +100,24 @@ module "alb" {
 module "jenkins" {
   source = "./modules/jenkins"
 
-  project_name          = var.project_name
-  environment           = var.environment
-  vpc_id                = module.vpc.vpc_id
-  private_subnet_ids    = module.vpc.private_subnet_ids
-  security_group_id     = module.security_groups.jenkins_security_group_id
-  iam_instance_profile  = module.iam.instance_profile_name
-  target_group_arn      = module.alb.target_group_arn
-  efs_file_system_id    = module.efs.file_system_id
-  efs_dns_name          = module.efs.dns_name
-  
+  project_name         = var.project_name
+  environment          = var.environment
+  vpc_id               = module.vpc.vpc_id
+  private_subnet_ids   = module.vpc.private_subnet_ids
+  security_group_id    = module.security_groups.jenkins_security_group_id
+  iam_instance_profile = module.iam.instance_profile_name
+  target_group_arn     = module.alb.target_group_arn
+  efs_file_system_id   = module.efs.file_system_id
+  efs_dns_name         = module.efs.dns_name
+
   # Jenkins specific configuration
-  instance_type         = var.jenkins_instance_type
-  min_size              = var.jenkins_min_size
-  max_size              = var.jenkins_max_size
-  desired_capacity      = var.jenkins_desired_capacity
+  jenkins_ami_id            = var.jenkins_ami_id
+  instance_type             = var.jenkins_instance_type
+  min_size                  = var.jenkins_min_size
+  max_size                  = var.jenkins_max_size
+  desired_capacity          = var.jenkins_desired_capacity
   health_check_grace_period = var.health_check_grace_period
-  
+
   tags = local.common_tags
 }
 
@@ -124,9 +125,9 @@ module "jenkins" {
 module "cloudwatch" {
   source = "./modules/cloudwatch"
 
-  project_name    = var.project_name
-  environment     = var.environment
-  
+  project_name = var.project_name
+  environment  = var.environment
+
   tags = local.common_tags
 }
 
@@ -136,7 +137,7 @@ module "inspector" {
 
   project_name = var.project_name
   environment  = var.environment
-  
+
   tags = local.common_tags
 }
 
@@ -153,10 +154,10 @@ module "blue_green_deployment" {
   target_group_arn     = module.alb.target_group_arn
   efs_file_system_id   = module.efs.file_system_id
   efs_dns_name         = module.efs.dns_name
-  
+
   # Blue/Green specific configuration
-  instance_type        = var.jenkins_instance_type
-  
+  instance_type = var.jenkins_instance_type
+
   common_tags = local.common_tags
 }
 

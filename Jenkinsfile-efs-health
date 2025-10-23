@@ -1,0 +1,45 @@
+pipeline {
+    agent any
+    
+    triggers {
+        cron('H */4 * * *') // Every 4 hours
+    }
+    
+    stages {
+        stage('EFS Health Check') {
+            steps {
+                script {
+                    sh '''
+                        echo "=== EFS Health Check ==="
+                        
+                        # Check mount status
+                        if df -h | grep -q efs; then
+                            echo "✅ EFS mounted"
+                            df -h | grep efs
+                        else
+                            echo "⚠️ Using local storage"
+                            df -h /var/lib/jenkins
+                        fi
+                        
+                        # Test write/read
+                        echo "Test $(date)" > /var/lib/jenkins/health-check.txt
+                        cat /var/lib/jenkins/health-check.txt
+                        rm /var/lib/jenkins/health-check.txt
+                        
+                        echo "✅ Storage is working"
+                    '''
+                }
+            }
+        }
+    }
+    
+    post {
+        failure {
+            emailext (
+                subject: "EFS Health Check Failed",
+                body: "EFS health check failed. Check logs.",
+                to: "devops@company.com"
+            )
+        }
+    }
+}

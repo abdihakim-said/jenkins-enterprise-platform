@@ -142,12 +142,12 @@ output "resource_summary" {
   description = "Summary of created resources"
   value = {
     vpc_id                    = module.vpc.vpc_id
-    jenkins_url              = "http://${module.alb.dns_name}:8080"
-    auto_scaling_group       = module.jenkins.auto_scaling_group_name
-    efs_file_system         = module.efs.file_system_id
-    instance_type           = var.jenkins_instance_type
+    jenkins_url               = "http://${module.alb.dns_name}:8080"
+    auto_scaling_group        = module.jenkins.auto_scaling_group_name
+    efs_file_system           = module.efs.file_system_id
+    instance_type             = var.jenkins_instance_type
     health_check_grace_period = var.health_check_grace_period
-    inspector_enabled       = true
-    vpc_endpoints_enabled   = true
+    inspector_enabled         = true
+    vpc_endpoints_enabled     = true
   }
 }

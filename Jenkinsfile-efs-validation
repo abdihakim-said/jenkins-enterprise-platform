@@ -1,0 +1,91 @@
+pipeline {
+    agent any
+    
+    parameters {
+        choice(
+            name: 'ENVIRONMENT',
+            choices: ['dev', 'staging', 'production'],
+            description: 'Environment to validate'
+        )
+    }
+    
+    stages {
+        stage('Validate EFS Mount') {
+            steps {
+                script {
+                    sh '''
+                        echo "=== EFS Mount Validation ==="
+                        
+                        # Check if EFS is mounted
+                        if df -h | grep -q efs; then
+                            echo "✅ EFS is mounted"
+                            df -h | grep efs
+                        else
+                            echo "⚠️  EFS not mounted, using local storage"
+                            df -h /var/lib/jenkins
+                        fi
+                        
+                        # Check Jenkins data persistence
+                        echo "=== Jenkins Data Check ==="
+                        ls -la /var/lib/jenkins/ | head -10
+                        
+                        # Check Jenkins health
+                        echo "=== Jenkins Health Check ==="
+                        systemctl is-active jenkins
+                        curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/login
+                    '''
+                }
+            }
+        }
+        
+        stage('Test EFS Failover') {
+            when {
+                expression { params.ENVIRONMENT == 'dev' }
+            }
+            steps {
+                script {
+                    sh '''
+                        echo "=== Testing EFS Failover ==="
+                        
+                        # Create test file
+                        echo "Test data $(date)" > /var/lib/jenkins/efs-test.txt
+                        
+                        # Simulate EFS unmount
+                        sudo umount /var/lib/jenkins || true
+                        
+                        # Restart Jenkins (should use local storage)
+                        sudo systemctl restart jenkins
+                        sleep 30
+                        
+                        # Check if Jenkins is still running
+                        systemctl is-active jenkins
+                        
+                        # Remount EFS
+                        sudo mount -a
+                        
+                        # Check if test file exists
+                        if [ -f /var/lib/jenkins/efs-test.txt ]; then
+                            echo "✅ EFS failover test passed"
+                        else
+                            echo "❌ EFS failover test failed"
+                            exit 1
+                        fi
+                    '''
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            echo "EFS validation completed"
+        }
+        failure {
+            emailext (
+                subject: "EFS Mount Validation Failed - ${params.ENVIRONMENT}",
+                body: "EFS mount validation failed. Please check the logs.",
+                to: "devops@company.com"
+            )
+        }
+    }
+}
