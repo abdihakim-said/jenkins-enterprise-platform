@@ -169,22 +169,36 @@ EOF
                         # Validate Packer configuration
                         packer validate jenkins-ami.pkr.hcl
                         
-                        # Build AMI
-                        packer build jenkins-ami.pkr.hcl
+                        # Build AMI with proper logging
+                        packer build -machine-readable jenkins-ami.pkr.hcl 2>&1 | tee packer-build.log
                         
-                        # Extract AMI ID from manifest
+                        # Extract AMI ID with multiple fallback methods
+                        AMI_ID=""
                         if [ -f manifest.json ]; then
-                            AMI_ID=\$(jq -r '.builds[-1].artifact_id' manifest.json | cut -d':' -f2)
-                        else
-                            # Fallback: extract from packer logs
-                            AMI_ID=\$(grep "artifact,0,id" ../packer-build.log | cut -d, -f6 | cut -d: -f2)
+                            AMI_ID=\$(jq -r '.builds[-1].artifact_id' manifest.json 2>/dev/null | cut -d':' -f2)
                         fi
                         
-                        echo "Built AMI ID: \$AMI_ID"
-                        echo "\$AMI_ID" > ../ami-id.txt
+                        if [ -z "\$AMI_ID" ] && [ -f packer-build.log ]; then
+                            AMI_ID=\$(grep "artifact,0,id" packer-build.log | tail -1 | cut -d',' -f6 | cut -d':' -f2)
+                        fi
+                        
+                        if [ -z "\$AMI_ID" ] && [ -f packer-build.log ]; then
+                            AMI_ID=\$(grep -o "ami-[0-9a-f]\\{8,17\\}" packer-build.log | tail -1)
+                        fi
+                        
+                        # Validate AMI ID format
+                        if [[ "\$AMI_ID" =~ ^ami-[0-9a-f]{8,17}\$ ]]; then
+                            echo "Built AMI ID: \$AMI_ID"
+                            echo "\$AMI_ID" > ../ami-id.txt
+                        else
+                            echo "ERROR: Failed to extract valid AMI ID. Found: '\$AMI_ID'"
+                            echo "Checking packer-build.log for debugging..."
+                            tail -20 packer-build.log
+                            exit 1
+                        fi
                         
                         # Tag the AMI
-                        if [ -n "\$AMI_ID" ]; then
+                        if [ -n "\$AMI_ID" ] && [[ "\$AMI_ID" =~ ^ami-[0-9a-f]{8,17}\$ ]]; then
                             aws ec2 create-tags \\
                                 --resources "\$AMI_ID" \\
                                 --tags \\
@@ -192,8 +206,9 @@ EOF
                                     Key=JenkinsVersion,Value="${params.JENKINS_VERSION}" \\
                                     Key=BuildTimestamp,Value="\$(date '+%Y-%m-%d_%H-%M-%S')" \\
                                 --region "${AWS_DEFAULT_REGION}"
+                            echo "✅ AMI tagged successfully"
                         else
-                            echo "ERROR: AMI_ID is empty, cannot tag AMI"
+                            echo "ERROR: Invalid AMI_ID '\$AMI_ID', cannot tag AMI"
                             exit 1
                         fi
                     """
@@ -394,6 +409,12 @@ EOF
                         # Get AMI ID
                         AMI_ID=\$(cat ami-id.txt)
                         
+                        # Validate AMI ID before proceeding
+                        if [ -z "\$AMI_ID" ] || [[ ! "\$AMI_ID" =~ ^ami-[0-9a-f]{8,17}\$ ]]; then
+                            echo "ERROR: Invalid or missing AMI ID: '\$AMI_ID'"
+                            exit 1
+                        fi
+                        
                         # Copy AMI to DR region
                         DR_AMI_ID=\$(aws ec2 copy-image \
                             --source-region "\${AWS_DEFAULT_REGION}" \
@@ -402,6 +423,12 @@ EOF
                             --name "jenkins-dr-\${ENVIRONMENT}-\$(date +%Y%m%d_%H%M%S)" \
                             --description "DR copy of \$AMI_ID" \
                             --query 'ImageId' --output text)
+                        
+                        # Validate DR AMI ID
+                        if [ -z "\$DR_AMI_ID" ] || [[ ! "\$DR_AMI_ID" =~ ^ami-[0-9a-f]{8,17}\$ ]]; then
+                            echo "ERROR: Failed to create DR AMI. Response: '\$DR_AMI_ID'"
+                            exit 1
+                        fi
                         
                         # Tag DR AMI
                         aws ec2 create-tags --region "\${DR_REGION}" --resources "\$DR_AMI_ID" --tags \
