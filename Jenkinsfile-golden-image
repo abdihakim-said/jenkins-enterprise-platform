@@ -462,7 +462,14 @@ EOF
         
         success {
             script {
-                def amiId = readFile('ami-id.txt').trim()
+                def amiId = ""
+                if (fileExists('ami-id.txt')) {
+                    amiId = readFile('ami-id.txt').trim()
+                } else if (fileExists('packer/ami-id.txt')) {
+                    amiId = readFile('packer/ami-id.txt').trim()
+                } else {
+                    amiId = "Unknown"
+                }
                 def message = """
 🎉 Jenkins Golden AMI Build Successful!
 
