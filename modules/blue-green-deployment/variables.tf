@@ -38,8 +38,8 @@ variable "efs_file_system_id" {
   type        = string
 }
 
-variable "efs_dns_name" {
-  description = "EFS DNS name for mounting"
+variable "aws_region" {
+  description = "AWS region"
   type        = string
 }
 

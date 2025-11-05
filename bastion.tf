@@ -2,7 +2,7 @@
 resource "aws_instance" "bastion" {
   ami                    = data.aws_ami.ubuntu_bastion.id
   instance_type          = "t3.micro"
-  key_name               = module.jenkins.key_pair_name
+  key_name               = "dev-jenkins-enterprise-platform-key"
   subnet_id              = module.vpc.public_subnet_ids[0]
   vpc_security_group_ids = [aws_security_group.bastion.id]
 

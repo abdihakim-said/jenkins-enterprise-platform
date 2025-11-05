@@ -87,7 +87,8 @@ resource "aws_launch_template" "blue" {
   }
   
   user_data = base64encode(templatefile("${path.module}/user_data.sh", {
-    efs_dns_name       = var.efs_dns_name
+    efs_file_system_id = var.efs_file_system_id
+    aws_region         = var.aws_region
     environment        = var.environment
     deployment_color   = "blue"
     log_group_name     = aws_cloudwatch_log_group.deployment_logs.name
@@ -144,7 +145,8 @@ resource "aws_launch_template" "green" {
   }
   
   user_data = base64encode(templatefile("${path.module}/user_data.sh", {
-    efs_dns_name       = var.efs_dns_name
+    efs_file_system_id = var.efs_file_system_id
+    aws_region         = var.aws_region
     environment        = var.environment
     deployment_color   = "green"
     log_group_name     = aws_cloudwatch_log_group.deployment_logs.name

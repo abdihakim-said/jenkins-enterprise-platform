@@ -77,6 +77,7 @@ sudo apt update
 sudo apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 sudo systemctl enable docker
 sudo usermod -aG docker ubuntu
+sudo usermod -aG docker jenkins
 
 # Install kubectl
 echo "=== Installing kubectl ==="

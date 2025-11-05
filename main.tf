@@ -92,31 +92,7 @@ module "alb" {
   vpc_id            = module.vpc.vpc_id
   public_subnet_ids = module.vpc.public_subnet_ids
   security_group_id = module.security_groups.alb_security_group_id
-
-  tags = local.common_tags
-}
-
-# Jenkins Module
-module "jenkins" {
-  source = "./modules/jenkins"
-
-  project_name         = var.project_name
-  environment          = var.environment
-  vpc_id               = module.vpc.vpc_id
-  private_subnet_ids   = module.vpc.private_subnet_ids
-  security_group_id    = module.security_groups.jenkins_security_group_id
-  iam_instance_profile = module.iam.instance_profile_name
-  target_group_arn     = module.alb.target_group_arn
-  efs_file_system_id   = module.efs.file_system_id
-  efs_dns_name         = module.efs.dns_name
-
-  # Jenkins specific configuration
-  jenkins_ami_id            = var.jenkins_ami_id
-  instance_type             = var.jenkins_instance_type
-  min_size                  = var.jenkins_min_size
-  max_size                  = var.jenkins_max_size
-  desired_capacity          = var.jenkins_desired_capacity
-  health_check_grace_period = var.health_check_grace_period
+  kms_key_id        = module.iam.kms_key_id
 
   tags = local.common_tags
 }
@@ -153,7 +129,7 @@ module "blue_green_deployment" {
   iam_instance_profile = module.iam.instance_profile_name
   target_group_arn     = module.alb.target_group_arn
   efs_file_system_id   = module.efs.file_system_id
-  efs_dns_name         = module.efs.dns_name
+  aws_region           = var.aws_region
 
   # Blue/Green specific configuration
   instance_type = var.jenkins_instance_type
@@ -172,7 +148,7 @@ module "cost_optimized_observability" {
   alert_email  = var.alert_email
 
   depends_on = [
-    module.jenkins,
+    module.blue_green_deployment,
     module.alb
   ]
 }

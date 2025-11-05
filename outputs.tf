@@ -40,13 +40,13 @@ output "load_balancer_zone_id" {
 
 # Jenkins Outputs
 output "jenkins_auto_scaling_group_name" {
-  description = "Name of the Jenkins Auto Scaling Group"
-  value       = module.jenkins.auto_scaling_group_name
+  description = "Name of the Jenkins Auto Scaling Group (Blue)"
+  value       = module.blue_green_deployment.blue_asg_name
 }
 
 output "jenkins_launch_template_id" {
-  description = "ID of the Jenkins launch template"
-  value       = module.jenkins.launch_template_id
+  description = "ID of the Jenkins launch template (Blue)"
+  value       = module.blue_green_deployment.blue_launch_template_id
 }
 
 # EFS Outputs
@@ -143,7 +143,8 @@ output "resource_summary" {
   value = {
     vpc_id                    = module.vpc.vpc_id
     jenkins_url               = "http://${module.alb.dns_name}:8080"
-    auto_scaling_group        = module.jenkins.auto_scaling_group_name
+    blue_asg                  = module.blue_green_deployment.blue_asg_name
+    green_asg                 = module.blue_green_deployment.green_asg_name
     efs_file_system           = module.efs.file_system_id
     instance_type             = var.jenkins_instance_type
     health_check_grace_period = var.health_check_grace_period

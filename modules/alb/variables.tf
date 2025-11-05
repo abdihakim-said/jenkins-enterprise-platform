@@ -6,6 +6,11 @@ variable "project_name" {
   type        = string
 }
 
+variable "kms_key_id" {
+  description = "KMS key ID for S3 bucket encryption"
+  type        = string
+}
+
 variable "environment" {
   description = "Environment name"
   type        = string

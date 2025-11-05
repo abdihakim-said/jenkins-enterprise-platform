@@ -1,7 +1,9 @@
 terraform {
   backend "s3" {
-    bucket = "jenkins-enterprise-platform-terraform-state"
-    key    = "dev/terraform.tfstate"
-    region = "us-east-1"
+    bucket         = "jenkins-tf-state-979033443535"
+    key            = "jenkins/dev/terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "jenkins-terraform-locks"
+    encrypt        = true
   }
 }

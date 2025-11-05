@@ -104,15 +104,8 @@ resource "aws_efs_file_system_policy" "jenkins" {
         Principal = {
           AWS = "*"
         }
-        Action = [
-          "elasticfilesystem:*"
-        ]
+        Action   = "elasticfilesystem:*"
         Resource = aws_efs_file_system.jenkins.arn
-        Condition = {
-          Bool = {
-            "aws:SecureTransport" = "true"
-          }
-        }
       }
     ]
   })

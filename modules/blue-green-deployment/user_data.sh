@@ -5,7 +5,8 @@
 set -e
 
 # Variables from Terraform
-EFS_DNS_NAME="${efs_dns_name}"
+EFS_FILE_SYSTEM_ID="${efs_file_system_id}"
+AWS_REGION="${aws_region}"
 ENVIRONMENT="${environment}"
 DEPLOYMENT_COLOR="${deployment_color}"
 LOG_GROUP_NAME="${log_group_name}"
@@ -77,22 +78,120 @@ EOF
 # Start CloudWatch agent
 /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s
 
-# Mount EFS
-log "Mounting EFS file system..."
-mkdir -p /var/jenkins_home
-echo "$EFS_DNS_NAME:/ /var/jenkins_home nfs4 nfsvers=4.1,rsize=1048576,wsize=1048576,hard,intr,timeo=600 0 0" >> /etc/fstab
-mount -a
+# Install EFS utils if not present (fallback)
+install_efs_utils() {
+    echo "=== Installing EFS Utils ==="
+    if ! command -v mount.efs &> /dev/null; then
+        apt-get update -y
+        apt-get install -y nfs-common
+        echo "✅ NFS utils installed"
+    else
+        echo "✅ EFS utils already available"
+    fi
+}
 
-# Set proper permissions
-chown -R jenkins:jenkins /var/jenkins_home
-chmod 755 /var/jenkins_home
+# Enhanced EFS Mount Function with Error Handling
+mount_efs() {
+    local efs_id=$1
+    local region=$2
+    local mount_point="/var/lib/jenkins"
+    
+    echo "=== Mounting EFS with Error Handling ==="
+    
+    # Stop Jenkins safely
+    if systemctl is-active --quiet jenkins; then
+        echo "Stopping Jenkins for EFS mount..."
+        systemctl stop jenkins
+        sleep 5
+    fi
+    
+    # Backup existing data if mount point exists and has content
+    if [ -d "$mount_point" ] && [ "$(ls -A $mount_point 2>/dev/null)" ]; then
+        echo "Backing up existing Jenkins data..."
+        mkdir -p /tmp/jenkins-backup
+        cp -r $mount_point/* /tmp/jenkins-backup/ 2>/dev/null || true
+    fi
+    
+    # Create mount point
+    mkdir -p $mount_point
+    
+    local mount_success=false
+    
+    # Method 1: NFS4 mount (most reliable)
+    echo "Attempting NFS4 mount..."
+    if timeout 30 mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2 \
+        $efs_id.efs.$region.amazonaws.com:/ $mount_point 2>/dev/null; then
+        echo "✅ EFS mounted via NFS4"
+        mount_success=true
+    else
+        echo "⚠️ NFS4 mount failed, trying EFS utils..."
+        
+        # Method 2: EFS utils mount
+        if command -v mount.efs &> /dev/null; then
+            if timeout 30 mount -t efs -o tls $efs_id:/ $mount_point 2>/dev/null; then
+                echo "✅ EFS mounted via EFS utils"
+                mount_success=true
+            else
+                echo "⚠️ EFS utils mount failed"
+            fi
+        else
+            echo "⚠️ EFS utils not available"
+        fi
+    fi
+    
+    # Handle mount success/failure
+    if [ "$mount_success" = true ]; then
+        # Add to fstab for persistence
+        if ! grep -q "$efs_id" /etc/fstab; then
+            echo "$efs_id.efs.$region.amazonaws.com:/ $mount_point nfs4 nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,_netdev 0 0" >> /etc/fstab
+        fi
+        
+        # Restore data if EFS is empty
+        if [ -d "/tmp/jenkins-backup" ] && [ -z "$(ls -A $mount_point 2>/dev/null)" ]; then
+            echo "Restoring Jenkins data to EFS..."
+            cp -r /tmp/jenkins-backup/* $mount_point/ 2>/dev/null || true
+        fi
+        
+        # Set proper ownership
+        chown -R jenkins:jenkins $mount_point
+        chmod 755 $mount_point
+        rm -rf /tmp/jenkins-backup
+        
+        echo "✅ EFS mount successful"
+    else
+        echo "❌ All EFS mount methods failed, using local storage"
+        mkdir -p $mount_point
+        
+        # Restore backup to local storage if available
+        if [ -d "/tmp/jenkins-backup" ]; then
+            echo "Restoring Jenkins data to local storage..."
+            cp -r /tmp/jenkins-backup/* $mount_point/ 2>/dev/null || true
+            rm -rf /tmp/jenkins-backup
+        fi
+        
+        chown -R jenkins:jenkins $mount_point
+        chmod 755 $mount_point
+    fi
+}
+
+# Install EFS utils as fallback
+install_efs_utils
+
+# Mount EFS if provided
+if [ -n "$EFS_FILE_SYSTEM_ID" ] && [ "$EFS_FILE_SYSTEM_ID" != "null" ]; then
+    mount_efs "$EFS_FILE_SYSTEM_ID" "$AWS_REGION"
+else
+    echo "No EFS ID provided, using local storage"
+    mkdir -p /var/lib/jenkins
+    chown -R jenkins:jenkins /var/lib/jenkins
+fi
 
 # Configure Jenkins for blue/green deployment
 log "Configuring Jenkins for $DEPLOYMENT_COLOR deployment..."
 
 # Create deployment-specific Jenkins configuration
-mkdir -p /var/jenkins_home/deployment
-cat > /var/jenkins_home/deployment/config.properties << EOF
+mkdir -p /var/lib/jenkins/deployment
+cat > /var/lib/jenkins/deployment/config.properties << EOF
 deployment.color=$DEPLOYMENT_COLOR
 deployment.environment=$ENVIRONMENT
 deployment.timestamp=$(date '+%Y-%m-%d_%H-%M-%S')
@@ -114,9 +213,9 @@ cat > /usr/local/bin/health-check.sh << 'EOF'
 #!/bin/bash
 # Health check script for blue/green deployment
 
-DEPLOYMENT_COLOR=$(cat /var/jenkins_home/deployment/config.properties | grep deployment.color | cut -d'=' -f2)
-HEALTH_CHECK_URL=$(cat /var/jenkins_home/deployment/config.properties | grep health.check.url | cut -d'=' -f2)
-SNS_TOPIC_ARN=$(cat /var/jenkins_home/deployment/config.properties | grep sns.topic.arn | cut -d'=' -f2)
+DEPLOYMENT_COLOR=$(cat /var/lib/jenkins/deployment/config.properties | grep deployment.color | cut -d'=' -f2)
+HEALTH_CHECK_URL=$(cat /var/lib/jenkins/deployment/config.properties | grep health.check.url | cut -d'=' -f2)
+SNS_TOPIC_ARN=$(cat /var/lib/jenkins/deployment/config.properties | grep sns.topic.arn | cut -d'=' -f2)
 
 # Check Jenkins health
 if curl -f -s "http://localhost:8080$HEALTH_CHECK_URL" > /dev/null; then
@@ -161,9 +260,9 @@ log "Jenkins started successfully"
 log "Applying deployment-specific configurations..."
 
 # Set deployment color in Jenkins system info
-mkdir -p /var/jenkins_home/userContent
-echo "<h2>Deployment: $DEPLOYMENT_COLOR Environment</h2>" > /var/jenkins_home/userContent/deployment-info.html
-echo "<p>Deployed at: $(date)</p>" >> /var/jenkins_home/userContent/deployment-info.html
+mkdir -p /var/lib/jenkins/userContent
+echo "<h2>Deployment: $DEPLOYMENT_COLOR Environment</h2>" > /var/lib/jenkins/userContent/deployment-info.html
+echo "<p>Deployed at: $(date)</p>" >> /var/lib/jenkins/userContent/deployment-info.html
 
 # Send deployment completion notification
 aws sns publish --topic-arn "$SNS_TOPIC_ARN" --message "[$DEPLOYMENT_COLOR] Deployment completed successfully at $(date)"
@@ -172,5 +271,16 @@ log "$DEPLOYMENT_COLOR deployment configuration completed successfully"
 
 # Final health check
 /usr/local/bin/health-check.sh
+
+# EFS mount verification
+if [ -n "$EFS_FILE_SYSTEM_ID" ] && [ "$EFS_FILE_SYSTEM_ID" != "null" ]; then
+    echo "=== EFS Mount Verification ==="
+    if mountpoint -q /var/lib/jenkins; then
+        echo "✅ EFS is mounted at /var/lib/jenkins"
+        echo "Mount details: $(mount | grep /var/lib/jenkins)"
+    else
+        echo "⚠️ EFS is not mounted, using local storage"
+    fi
+fi
 
 log "User data script execution completed"

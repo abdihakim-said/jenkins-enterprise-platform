@@ -115,6 +115,9 @@ jenkins-enterprise-platform/
 │   ├── Jenkinsfile-infrastructure    # Infrastructure deployment
 │   └── Jenkinsfile-backup           # Automated backup pipeline
 ├── docs/                      # Architecture and deployment documentation
+│   ├── BLUE_GREEN_DEPLOYMENT.md      # Lambda-orchestrated deployment strategy
+│   ├── PROJECT_ACHIEVEMENTS.md       # Comprehensive achievements documentation
+│   └── [Additional technical docs]
 ├── main.tf                    # Root Terraform configuration
 ├── variables.tf               # Input variables
 ├── outputs.tf                 # Output values
@@ -133,43 +136,39 @@ jenkins-enterprise-platform/
 
 ## 🚀 Quick Start
 
-### Prerequisites
+### 30-Minute Deployment
 
-- AWS CLI configured with appropriate permissions
-- Terraform >= 1.0
-- Packer >= 1.8
-- Docker (for security scanning tools)
+```bash
+# 1. Install prerequisites
+brew install terraform awscli packer
 
-### Deployment
+# 2. Configure AWS
+aws configure
 
-1. **Clone and navigate to the repository**
-   ```bash
-   git clone https://github.com/yourusername/jenkins-enterprise-platform
-   cd jenkins-enterprise-platform
-   ```
+# 3. Clone repository
+git clone https://github.com/yourusername/jenkins-enterprise-platform
+cd jenkins-enterprise-platform
 
-2. **Configure environment variables**
-   ```bash
-   # Edit terraform.tfvars with your specific values
-   vim environments/staging/terraform.tfvars
-   ```
+# 4. Build golden AMI
+cd packer
+packer init jenkins-ami.pkr.hcl
+packer build jenkins-ami.pkr.hcl
 
-3. **Deploy infrastructure**
-   ```bash
-   cd environments/staging
-   terraform init
-   terraform plan
-   terraform apply -auto-approve
-   ```
+# 5. Deploy infrastructure
+cd ../environments/dev
+terraform init
+terraform apply -auto-approve
 
-4. **Access Jenkins**
-   ```bash
-   # Get Jenkins URL from outputs
-   terraform output jenkins_url
-   
-   # Get admin password
-   aws ssm get-parameter --name '/jenkins/staging/admin-password' --with-decryption --query 'Parameter.Value' --output text --region us-east-1
-   ```
+# 6. Get Jenkins credentials
+terraform output -raw jenkins_url
+aws ssm get-parameter --name '/jenkins/dev/admin-password' --with-decryption --query 'Parameter.Value' --output text --region us-east-1
+```
+
+**📖 Complete Guides**:
+- **[QUICK_START.md](./QUICK_START.md)** - 30-minute deployment guide
+- **[docs/IMPLEMENTATION_GUIDE.md](./docs/IMPLEMENTATION_GUIDE.md)** - Complete step-by-step implementation (60 minutes)
+- **[docs/TESTING_GUIDE.md](./docs/TESTING_GUIDE.md)** - Comprehensive testing procedures
+- **[TESTING_QUICK_START.md](./TESTING_QUICK_START.md)** - Quick testing commands
 
 ## 🔧 Configuration
 
