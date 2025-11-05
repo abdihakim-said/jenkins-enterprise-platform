@@ -103,6 +103,7 @@ module "cloudwatch" {
 
   project_name = var.project_name
   environment  = var.environment
+  kms_key_id   = module.iam.kms_key_id
 
   tags = local.common_tags
 }
@@ -113,6 +114,7 @@ module "inspector" {
 
   project_name = var.project_name
   environment  = var.environment
+  kms_key_id   = module.iam.kms_key_id
 
   tags = local.common_tags
 }
@@ -130,6 +132,7 @@ module "blue_green_deployment" {
   target_group_arn     = module.alb.target_group_arn
   efs_file_system_id   = module.efs.file_system_id
   aws_region           = var.aws_region
+  kms_key_id           = module.iam.kms_key_id
 
   # Blue/Green specific configuration
   instance_type = var.jenkins_instance_type

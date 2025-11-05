@@ -138,7 +138,8 @@ resource "aws_cloudwatch_metric_alarm" "jenkins_high_response_time" {
 
 # SNS Topic for Alerts (optional)
 resource "aws_sns_topic" "jenkins_alerts" {
-  name = "${var.environment}-${replace(lower(var.project_name), " ", "-")}-alerts"
+  name              = "${var.environment}-${replace(lower(var.project_name), " ", "-")}-alerts"
+  kms_master_key_id = var.kms_key_id
 
   tags = merge(var.tags, {
     Name = "${var.environment}-${replace(lower(var.project_name), " ", "-")}-alerts"

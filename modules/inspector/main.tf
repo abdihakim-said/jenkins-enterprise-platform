@@ -19,7 +19,8 @@ resource "aws_cloudwatch_event_rule" "inspector_findings" {
 
 # SNS Topic for Inspector notifications
 resource "aws_sns_topic" "inspector_notifications" {
-  name = "${var.environment}-${var.project_name}-inspector-notifications"
+  name              = "${var.environment}-${var.project_name}-inspector-notifications"
+  kms_master_key_id = var.kms_key_id
 
   tags = merge(var.tags, {
     Name = "${var.environment}-${var.project_name}-inspector-notifications"

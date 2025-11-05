@@ -37,7 +37,8 @@ data "aws_ami" "jenkins_golden" {
 
 # SNS Topic for deployment notifications
 resource "aws_sns_topic" "deployment_notifications" {
-  name = "${var.project_name}-${var.environment}-deployment-alerts"
+  name              = "${var.project_name}-${var.environment}-deployment-alerts"
+  kms_master_key_id = var.kms_key_id
   
   tags = merge(local.common_tags, {
     Name = "Deployment Notifications"
