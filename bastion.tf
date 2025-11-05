@@ -6,6 +6,12 @@ resource "aws_instance" "bastion" {
   subnet_id              = module.vpc.public_subnet_ids[0]
   vpc_security_group_ids = [aws_security_group.bastion.id]
 
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 1
+  }
+
   tags = {
     Name = "${var.environment}-jenkins-bastion"
   }
