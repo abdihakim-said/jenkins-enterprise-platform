@@ -49,7 +49,11 @@ resource "aws_iam_policy" "jenkins" {
           "ssm:DeleteParameter",
           "ssm:DescribeParameters"
         ]
-        Resource = "*"
+        Resource = [
+          "arn:aws:ssm:*:${data.aws_caller_identity.current.account_id}:parameter/jenkins/*",
+          "arn:aws:ssm:*:${data.aws_caller_identity.current.account_id}:document/*",
+          "arn:aws:ec2:*:${data.aws_caller_identity.current.account_id}:instance/*"
+        ]
       },
       {
         Effect = "Allow"
@@ -64,7 +68,11 @@ resource "aws_iam_policy" "jenkins" {
           "logs:DescribeLogStreams",
           "logs:DescribeLogGroups"
         ]
-        Resource = "*"
+        Resource = [
+          "arn:aws:logs:*:${data.aws_caller_identity.current.account_id}:log-group:/jenkins/*",
+          "arn:aws:logs:*:${data.aws_caller_identity.current.account_id}:log-group:/aws/jenkins/*",
+          "arn:aws:cloudwatch:*:${data.aws_caller_identity.current.account_id}:metric/*"
+        ]
       },
       {
         Effect = "Allow"
@@ -100,7 +108,14 @@ resource "aws_iam_policy" "jenkins" {
           "ec2:AuthorizeSecurityGroupIngress",
           "ec2:RevokeSecurityGroupIngress"
         ]
-        Resource = "*"
+        Resource = [
+          "arn:aws:ec2:*:${data.aws_caller_identity.current.account_id}:instance/*",
+          "arn:aws:ec2:*:${data.aws_caller_identity.current.account_id}:image/*",
+          "arn:aws:ec2:*:${data.aws_caller_identity.current.account_id}:snapshot/*",
+          "arn:aws:ec2:*:${data.aws_caller_identity.current.account_id}:security-group/*",
+          "arn:aws:ec2:*:${data.aws_caller_identity.current.account_id}:key-pair/*",
+          "arn:aws:ec2:*::image/*"
+        ]
       },
       {
         Effect = "Allow"
@@ -124,7 +139,9 @@ resource "aws_iam_policy" "jenkins" {
           "elasticfilesystem:DescribeFileSystems",
           "elasticfilesystem:DescribeMountTargets"
         ]
-        Resource = "*"
+        Resource = [
+          "arn:aws:elasticfilesystem:*:${data.aws_caller_identity.current.account_id}:file-system/*"
+        ]
       },
       {
         Effect = "Allow"
@@ -134,7 +151,9 @@ resource "aws_iam_policy" "jenkins" {
           "autoscaling:DescribeAutoScalingInstances",
           "autoscaling:SetInstanceHealth"
         ]
-        Resource = "*"
+        Resource = [
+          "arn:aws:autoscaling:*:${data.aws_caller_identity.current.account_id}:autoScalingGroup:*:autoScalingGroupName/jenkins-*"
+        ]
       },
       {
         Effect = "Allow"
@@ -143,7 +162,10 @@ resource "aws_iam_policy" "jenkins" {
           "elasticloadbalancing:DescribeTargetHealth",
           "elasticloadbalancing:DescribeTargetGroups"
         ]
-        Resource = "*"
+        Resource = [
+          "arn:aws:elasticloadbalancing:*:${data.aws_caller_identity.current.account_id}:targetgroup/jenkins-*/*",
+          "arn:aws:elasticloadbalancing:*:${data.aws_caller_identity.current.account_id}:loadbalancer/app/jenkins-*/*"
+        ]
       }
     ]
   })
