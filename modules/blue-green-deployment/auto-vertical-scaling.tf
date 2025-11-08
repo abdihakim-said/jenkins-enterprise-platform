@@ -5,9 +5,9 @@
 locals {
   # Instance types in order of size (auto-scales up/down)
   instance_types = [
-    "t3.small",   # 2 vCPU, 2GB RAM - $15/month
-    "t3.medium",  # 2 vCPU, 4GB RAM - $30/month
-    "t3.large",   # 2 vCPU, 8GB RAM - $60/month
+    "t3.small",  # 2 vCPU, 2GB RAM - $15/month
+    "t3.medium", # 2 vCPU, 4GB RAM - $30/month
+    "t3.large",  # 2 vCPU, 8GB RAM - $60/month
   ]
 }
 
@@ -49,13 +49,13 @@ resource "aws_cloudwatch_metric_alarm" "high_cpu_scale_up" {
 
 # Lambda function for automatic vertical scaling
 resource "aws_lambda_function" "vertical_scaler" {
-  filename         = "${path.module}/vertical_scaler.zip"
-  function_name    = "${var.project_name}-${var.environment}-vertical-scaler"
-  role            = aws_iam_role.vertical_scaler_role.arn
-  handler         = "vertical_scaler.lambda_handler"
-  runtime         = "python3.9"
-  timeout         = 300
-  memory_size     = 256
+  filename      = "${path.module}/vertical_scaler.zip"
+  function_name = "${var.project_name}-${var.environment}-vertical-scaler"
+  role          = aws_iam_role.vertical_scaler_role.arn
+  handler       = "vertical_scaler.lambda_handler"
+  runtime       = "python3.9"
+  timeout       = 300
+  memory_size   = 256
 
   environment {
     variables = {

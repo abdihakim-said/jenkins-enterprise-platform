@@ -165,12 +165,12 @@ module "cost_optimized_observability" {
 module "cost_optimization" {
   source = "./modules/cost-optimization"
 
-  environment         = var.environment
-  jenkins_asg_name    = module.blue_green_deployment.blue_asg_name
-  jenkins_url         = "https://${module.alb.dns_name}"
-  cost_alert_email    = var.alert_email
+  environment          = var.environment
+  jenkins_asg_name     = module.blue_green_deployment.blue_asg_name
+  jenkins_url          = "https://${module.alb.dns_name}"
+  cost_alert_email     = var.alert_email
   monthly_budget_limit = "200"
-  
+
   common_tags = local.common_tags
 
   depends_on = [

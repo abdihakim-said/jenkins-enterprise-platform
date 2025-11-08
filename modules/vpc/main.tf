@@ -54,7 +54,7 @@ resource "aws_subnet" "private" {
 resource "aws_eip" "nat" {
   count = 1
 
-  domain = "vpc"
+  domain     = "vpc"
   depends_on = [aws_internet_gateway.main]
 
   tags = merge(var.tags, {
@@ -186,31 +186,31 @@ resource "aws_iam_role_policy" "flow_log" {
 resource "aws_vpc_endpoint" "s3" {
   vpc_id       = aws_vpc.main.id
   service_name = "com.amazonaws.${data.aws_region.current.name}.s3"
-  
+
   tags = merge(var.tags, {
     Name = "${var.environment}-${replace(lower(var.project_name), " ", "-")}-s3-endpoint"
   })
 }
 
 resource "aws_vpc_endpoint" "ec2" {
-  vpc_id              = aws_vpc.main.id
-  service_name        = "com.amazonaws.${data.aws_region.current.name}.ec2"
-  vpc_endpoint_type   = "Interface"
-  subnet_ids          = aws_subnet.private[*].id
-  security_group_ids  = [aws_security_group.vpc_endpoint.id]
-  
+  vpc_id             = aws_vpc.main.id
+  service_name       = "com.amazonaws.${data.aws_region.current.name}.ec2"
+  vpc_endpoint_type  = "Interface"
+  subnet_ids         = aws_subnet.private[*].id
+  security_group_ids = [aws_security_group.vpc_endpoint.id]
+
   tags = merge(var.tags, {
     Name = "${var.environment}-${replace(lower(var.project_name), " ", "-")}-ec2-endpoint"
   })
 }
 
 resource "aws_vpc_endpoint" "ssm" {
-  vpc_id              = aws_vpc.main.id
-  service_name        = "com.amazonaws.${data.aws_region.current.name}.ssm"
-  vpc_endpoint_type   = "Interface"
-  subnet_ids          = aws_subnet.private[*].id
-  security_group_ids  = [aws_security_group.vpc_endpoint.id]
-  
+  vpc_id             = aws_vpc.main.id
+  service_name       = "com.amazonaws.${data.aws_region.current.name}.ssm"
+  vpc_endpoint_type  = "Interface"
+  subnet_ids         = aws_subnet.private[*].id
+  security_group_ids = [aws_security_group.vpc_endpoint.id]
+
   tags = merge(var.tags, {
     Name = "${var.environment}-${replace(lower(var.project_name), " ", "-")}-ssm-endpoint"
   })

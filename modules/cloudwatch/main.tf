@@ -91,9 +91,9 @@ resource "aws_cloudwatch_dashboard" "jenkins" {
         height = 6
 
         properties = {
-          query   = "SOURCE '/jenkins/${var.environment}/application' | fields @timestamp, @message | sort @timestamp desc | limit 100"
-          region  = data.aws_region.current.name
-          title   = "Recent Jenkins Application Logs"
+          query  = "SOURCE '/jenkins/${var.environment}/application' | fields @timestamp, @message | sort @timestamp desc | limit 100"
+          region = data.aws_region.current.name
+          title  = "Recent Jenkins Application Logs"
         }
       }
     ]

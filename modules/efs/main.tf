@@ -4,7 +4,7 @@
 # EFS File System
 resource "aws_efs_file_system" "jenkins" {
   creation_token = "${var.environment}-${replace(lower(var.project_name), " ", "-")}-efs"
-  
+
   performance_mode                = "generalPurpose"
   throughput_mode                 = "provisioned"
   provisioned_throughput_in_mibps = 100

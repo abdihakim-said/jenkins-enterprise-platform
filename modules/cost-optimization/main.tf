@@ -5,10 +5,10 @@
 # S3 Bucket for Cost Reports and Analytics
 resource "aws_s3_bucket" "cost_reports" {
   bucket = "${var.environment}-jenkins-cost-optimization-${random_string.bucket_suffix.result}"
-  
+
   tags = merge(var.common_tags, {
-    Name = "${var.environment}-jenkins-cost-reports"
-    Purpose = "Cost Optimization Analytics"
+    Name       = "${var.environment}-jenkins-cost-reports"
+    Purpose    = "Cost Optimization Analytics"
     CostCenter = "DevOps"
   })
 }
@@ -29,7 +29,7 @@ resource "aws_s3_bucket_versioning" "cost_reports" {
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "cost_reports" {
   bucket = aws_s3_bucket.cost_reports.id
-  
+
   rule {
     apply_server_side_encryption_by_default {
       sse_algorithm = "AES256"
@@ -40,28 +40,28 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "cost_reports" {
 # Lifecycle policy for cost optimization
 resource "aws_s3_bucket_lifecycle_configuration" "cost_reports" {
   bucket = aws_s3_bucket.cost_reports.id
-  
+
   rule {
     id     = "cost_reports_lifecycle"
     status = "Enabled"
-    
+
     filter {
       prefix = "cost-reports/"
     }
-    
+
     # Daily reports
     transition {
       days          = 30
       storage_class = "STANDARD_IA"
     }
-    
+
     transition {
       days          = 90
       storage_class = "GLACIER"
     }
-    
+
     expiration {
-      days = 2555  # 7 years retention
+      days = 2555 # 7 years retention
     }
   }
 }
@@ -73,24 +73,24 @@ resource "aws_budgets_budget" "jenkins_cost_budget" {
   limit_amount = var.monthly_budget_limit
   limit_unit   = "USD"
   time_unit    = "MONTHLY"
-  
+
   cost_filter {
     name   = "TagKeyValue"
     values = ["Project$jenkins-enterprise-platform"]
   }
-  
+
   notification {
     comparison_operator        = "GREATER_THAN"
-    threshold                 = 50
-    threshold_type            = "PERCENTAGE"
-    notification_type         = "ACTUAL"
+    threshold                  = 50
+    threshold_type             = "PERCENTAGE"
+    notification_type          = "ACTUAL"
     subscriber_email_addresses = [var.cost_alert_email]
   }
-  
+
   notification {
     comparison_operator        = "GREATER_THAN"
-    threshold                 = 80
-    threshold_type            = "PERCENTAGE"
+    threshold                  = 80
+    threshold_type             = "PERCENTAGE"
     notification_type          = "FORECASTED"
     subscriber_email_addresses = [var.cost_alert_email]
   }
@@ -99,7 +99,7 @@ resource "aws_budgets_budget" "jenkins_cost_budget" {
 # SNS Topic for Cost Alerts
 resource "aws_sns_topic" "cost_alerts" {
   name = "${var.environment}-jenkins-cost-alerts"
-  
+
   tags = var.common_tags
 }
 
@@ -111,13 +111,13 @@ resource "aws_sns_topic_subscription" "cost_email_alerts" {
 
 # Lambda for Cost Optimization
 resource "aws_lambda_function" "cost_optimizer" {
-  filename         = data.archive_file.cost_optimizer_zip.output_path
-  function_name    = "${var.environment}-jenkins-cost-optimizer"
-  role            = aws_iam_role.cost_optimizer_role.arn
-  handler         = "cost_optimizer.lambda_handler"
-  runtime         = "python3.9"
-  timeout         = 300
-  
+  filename      = data.archive_file.cost_optimizer_zip.output_path
+  function_name = "${var.environment}-jenkins-cost-optimizer"
+  role          = aws_iam_role.cost_optimizer_role.arn
+  handler       = "cost_optimizer.lambda_handler"
+  runtime       = "python3.9"
+  timeout       = 300
+
   environment {
     variables = {
       ENVIRONMENT = var.environment
@@ -127,7 +127,7 @@ resource "aws_lambda_function" "cost_optimizer" {
       JENKINS_URL = var.jenkins_url
     }
   }
-  
+
   tags = var.common_tags
 }
 
@@ -155,45 +155,45 @@ resource "aws_lambda_permission" "allow_cloudwatch" {
 # Scheduled Scaling for Off-Hours
 resource "aws_autoscaling_schedule" "scale_down_evening" {
   scheduled_action_name  = "${var.environment}-jenkins-scale-down"
-  min_size              = 0
-  max_size              = 1
-  desired_capacity      = 0
-  recurrence            = "0 19 * * MON-FRI"  # 7 PM weekdays
+  min_size               = 0
+  max_size               = 1
+  desired_capacity       = 0
+  recurrence             = "0 19 * * MON-FRI" # 7 PM weekdays
   autoscaling_group_name = var.jenkins_asg_name
 }
 
 resource "aws_autoscaling_schedule" "scale_up_morning" {
   scheduled_action_name  = "${var.environment}-jenkins-scale-up"
-  min_size              = 1
-  max_size              = 5
-  desired_capacity      = 1
-  recurrence            = "0 8 * * MON-FRI"   # 8 AM weekdays
+  min_size               = 1
+  max_size               = 5
+  desired_capacity       = 1
+  recurrence             = "0 8 * * MON-FRI" # 8 AM weekdays
   autoscaling_group_name = var.jenkins_asg_name
 }
 
 # Weekend scaling
 resource "aws_autoscaling_schedule" "scale_down_weekend" {
   scheduled_action_name  = "${var.environment}-jenkins-weekend-down"
-  min_size              = 0
-  max_size              = 1
-  desired_capacity      = 0
-  recurrence            = "0 20 * * FRI"      # Friday 8 PM
+  min_size               = 0
+  max_size               = 1
+  desired_capacity       = 0
+  recurrence             = "0 20 * * FRI" # Friday 8 PM
   autoscaling_group_name = var.jenkins_asg_name
 }
 
 resource "aws_autoscaling_schedule" "scale_up_monday" {
   scheduled_action_name  = "${var.environment}-jenkins-monday-up"
-  min_size              = 1
-  max_size              = 5
-  desired_capacity      = 1
-  recurrence            = "0 8 * * MON"       # Monday 8 AM
+  min_size               = 1
+  max_size               = 5
+  desired_capacity       = 1
+  recurrence             = "0 8 * * MON" # Monday 8 AM
   autoscaling_group_name = var.jenkins_asg_name
 }
 
 # IAM Role for Cost Optimizer Lambda
 resource "aws_iam_role" "cost_optimizer_role" {
   name = "${var.environment}-jenkins-cost-optimizer-role"
-  
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -206,14 +206,14 @@ resource "aws_iam_role" "cost_optimizer_role" {
       }
     ]
   })
-  
+
   tags = var.common_tags
 }
 
 resource "aws_iam_role_policy" "cost_optimizer_policy" {
   name = "${var.environment}-jenkins-cost-optimizer-policy"
   role = aws_iam_role.cost_optimizer_role.id
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -256,7 +256,7 @@ resource "aws_iam_role_policy_attachment" "cost_optimizer_basic" {
 # CloudWatch Dashboard for Cost Monitoring
 resource "aws_cloudwatch_dashboard" "cost_optimization" {
   dashboard_name = "${var.environment}-jenkins-cost-optimization"
-  
+
   dashboard_body = jsonencode({
     widgets = [
       {
@@ -265,7 +265,7 @@ resource "aws_cloudwatch_dashboard" "cost_optimization" {
         y      = 0
         width  = 12
         height = 6
-        
+
         properties = {
           metrics = [
             ["AWS/AutoScaling", "GroupDesiredCapacity", "AutoScalingGroupName", var.jenkins_asg_name],
@@ -283,11 +283,11 @@ resource "aws_cloudwatch_dashboard" "cost_optimization" {
         y      = 6
         width  = 24
         height = 6
-        
+
         properties = {
-          query   = "SOURCE '/aws/lambda/${aws_lambda_function.cost_optimizer.function_name}' | fields @timestamp, @message | filter @message like /COST/ | sort @timestamp desc | limit 100"
-          region  = data.aws_region.current.name
-          title   = "Cost Optimization Events"
+          query  = "SOURCE '/aws/lambda/${aws_lambda_function.cost_optimizer.function_name}' | fields @timestamp, @message | filter @message like /COST/ | sort @timestamp desc | limit 100"
+          region = data.aws_region.current.name
+          title  = "Cost Optimization Events"
         }
       }
     ]

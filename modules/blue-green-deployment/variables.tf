@@ -63,7 +63,7 @@ variable "active_deployment" {
   description = "Active deployment color (blue or green)"
   type        = string
   default     = "blue"
-  
+
   validation {
     condition     = contains(["blue", "green"], var.active_deployment)
     error_message = "Active deployment must be either 'blue' or 'green'."

@@ -34,7 +34,7 @@ resource "aws_cloudwatch_dashboard" "jenkins_observability" {
           }
         }
       },
-      
+
       # Application Performance
       {
         type   = "metric"
@@ -167,11 +167,11 @@ resource "aws_cloudwatch_dashboard" "jenkins_observability" {
             ["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", data.aws_lb.jenkins.arn_suffix],
             [".", "HTTPCode_Target_2XX_Count", ".", "."]
           ]
-          view    = "singleValue"
-          region  = var.aws_region
-          title   = "📊 SLA Metrics (99.9% Target)"
-          period  = 300
-          stat    = "Average"
+          view   = "singleValue"
+          region = var.aws_region
+          title  = "📊 SLA Metrics (99.9% Target)"
+          period = 300
+          stat   = "Average"
         }
       }
     ]

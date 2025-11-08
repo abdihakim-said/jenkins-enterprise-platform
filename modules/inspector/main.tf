@@ -57,12 +57,12 @@ resource "aws_sns_topic_policy" "inspector_notifications" {
 
 # Lambda function for processing Inspector findings (optional)
 resource "aws_lambda_function" "inspector_processor" {
-  filename         = "${path.module}/inspector_processor.zip"
-  function_name    = "${var.environment}-${var.project_name}-inspector-processor"
-  role            = aws_iam_role.inspector_lambda.arn
-  handler         = "index.handler"
-  runtime         = "python3.9"
-  timeout         = 60
+  filename      = "${path.module}/inspector_processor.zip"
+  function_name = "${var.environment}-${var.project_name}-inspector-processor"
+  role          = aws_iam_role.inspector_lambda.arn
+  handler       = "index.handler"
+  runtime       = "python3.9"
+  timeout       = 60
 
   # Create a simple zip file if it doesn't exist
   depends_on = [data.archive_file.inspector_processor]
@@ -74,9 +74,9 @@ resource "aws_lambda_function" "inspector_processor" {
 data "archive_file" "inspector_processor" {
   type        = "zip"
   output_path = "${path.module}/inspector_processor.zip"
-  
+
   source {
-    content = <<EOF
+    content  = <<EOF
 import json
 import boto3
 

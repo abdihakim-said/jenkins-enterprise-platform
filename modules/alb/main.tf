@@ -10,8 +10,8 @@ resource "aws_lb" "jenkins" {
   subnets            = var.public_subnet_ids
 
   enable_deletion_protection = false
-  enable_http2              = true
-  idle_timeout              = 60
+  enable_http2               = true
+  idle_timeout               = 60
 
   access_logs {
     bucket  = aws_s3_bucket.alb_logs.bucket
