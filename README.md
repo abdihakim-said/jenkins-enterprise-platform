@@ -328,6 +328,104 @@ vs Enterprise ECS Stack: ~$120/month
 > 
 > **— Technical Director, Luuul Solutions**
 
+## 🏗️ Architectural Decision Records (ADRs)
+
+### Strategic Technology Decisions
+
+#### **Decision 1: EC2 vs EKS for Jenkins Deployment**
+
+**Context**: Luuul Solutions needed a reliable CI/CD platform with predictable costs and operational simplicity.
+
+**Decision**: **EC2-based deployment** over Amazon EKS
+
+**Rationale**:
+- **Cost Efficiency**: EC2 saves ~$180/month vs EKS control plane ($0.10/hour = $73/month) + worker nodes
+- **Operational Simplicity**: Client's team familiar with EC2, reducing operational overhead
+- **Jenkins Characteristics**: Stateful workloads with persistent storage better suited for EC2
+- **Resource Predictability**: Jenkins master requires consistent resources, not dynamic scaling
+- **Compliance**: Simpler security model for client's compliance requirements
+
+**Trade-offs Accepted**:
+- Manual scaling vs automatic Kubernetes scaling (mitigated with Auto Scaling Groups)
+- Container orchestration complexity vs VM simplicity (Jenkins handles job orchestration)
+
+#### **Decision 2: Single NAT Gateway vs Multi-AZ NAT**
+
+**Context**: Balance between high availability and cost optimization
+
+**Decision**: **Single NAT Gateway** with automated failover
+
+**Rationale**:
+- **Cost Savings**: $45/month savings vs multi-AZ setup
+- **Risk Mitigation**: Automated recreation via Terraform if failure occurs
+- **Client Priority**: Cost optimization over 99.99% availability for development workloads
+- **Recovery Time**: 5-10 minute recovery acceptable for non-production critical systems
+
+#### **Decision 3: EFS vs EBS for Jenkins Storage**
+
+**Context**: Jenkins requires persistent, shared storage for master and potential agents
+
+**Decision**: **Amazon EFS** over EBS volumes
+
+**Rationale**:
+- **Multi-AZ Access**: Shared storage across availability zones
+- **Automatic Scaling**: No capacity planning required
+- **Backup Integration**: Native AWS Backup support
+- **Cost Efficiency**: Intelligent tiering reduces storage costs by 40%
+- **Disaster Recovery**: Cross-region replication capabilities
+
+#### **Decision 4: Lambda vs Step Functions for Orchestration**
+
+**Context**: Blue-green deployment automation and cost optimization workflows
+
+**Decision**: **AWS Lambda** for orchestration
+
+**Rationale**:
+- **Cost Efficiency**: $0.20/month vs Step Functions $25/month for workflow executions
+- **Simplicity**: Single function vs complex state machine for client's use case
+- **Performance**: Sub-second execution for deployment decisions
+- **Integration**: Native CloudWatch Events integration
+
+#### **Decision 5: Terraform vs CloudFormation**
+
+**Context**: Infrastructure as Code tool selection
+
+**Decision**: **Terraform** over AWS CloudFormation
+
+**Rationale**:
+- **Multi-Cloud Strategy**: Client's future Azure integration requirements
+- **Module Reusability**: 11 reusable modules for different environments
+- **State Management**: Superior state management and drift detection
+- **Community**: Larger ecosystem and provider support
+- **Team Expertise**: Client team's existing Terraform knowledge
+
+### **Risk Assessment & Mitigation**
+
+| Risk | Impact | Probability | Mitigation Strategy |
+|------|--------|-------------|-------------------|
+| Single NAT Gateway failure | Medium | Low | Automated Terraform recreation, 5-10min RTO |
+| EC2 instance failure | High | Medium | Auto Scaling Group with health checks |
+| EFS performance degradation | Medium | Low | Provisioned throughput mode available |
+| Lambda cold starts | Low | Medium | CloudWatch Events keep functions warm |
+| Terraform state corruption | High | Low | S3 versioning + DynamoDB locking |
+
+### **Scalability Roadmap**
+
+**Current Capacity**: Supports 50+ developers, 200+ builds/day
+**6-Month Projection**: Scale to 100+ developers with minimal changes
+**12-Month Vision**: Multi-region active-active deployment
+
+**Scaling Triggers**:
+- **CPU > 70%**: Auto Scaling Group adds instances
+- **Build Queue > 10**: Horizontal scaling with additional agents
+- **Storage > 80%**: EFS automatic scaling + lifecycle policies
+
+## 🎯 Client Testimonial
+
+> *"The Jenkins Enterprise Platform delivered by Abdihakim transformed our deployment process completely. We went from manual, error-prone deployments taking hours to fully automated, zero-downtime releases in minutes. The disaster recovery capabilities and quarterly security compliance automation give us complete confidence in our business continuity. The 45% cost reduction while improving reliability exceeded our expectations."*
+> 
+> **— Technical Director, Luuul Solutions**
+
 ## 🏆 Project Achievements
 
 ### Technical Excellence
