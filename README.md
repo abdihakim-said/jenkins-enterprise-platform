@@ -356,8 +356,7 @@ vs Enterprise ECS Stack: ~$120/month
 **Portfolio Project by**: Abdihakim Said  
 **Role**: Senior DevOps Engineer  
 **Client**: Luuul Solutions  
-**Contact**: [Your Professional Email]  
-**LinkedIn**: [Your LinkedIn Profile]  
+**LinkedIn**: [https://www.linkedin.com/in/said-devops/](https://www.linkedin.com/in/said-devops/)  
 
 ## 📄 License
 
