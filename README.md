@@ -23,7 +23,7 @@ Luuul Solutions required a scalable, secure CI/CD platform supporting their grow
 - Cost-optimized infrastructure (~$90/month savings)
 
 ### Solution Delivered
-Production-ready Jenkins deployment on AWS using modular Terraform architecture with Infrastructure as Code (IaC) principles, featuring 10 specialized modules and enterprise-grade automation.
+Production-ready Jenkins deployment on AWS using modular Terraform architecture with Infrastructure as Code (IaC) principles, featuring 11 specialized modules (10 deployed + 1 pipeline) and enterprise-grade automation.
 
 ## 🏗️ Architecture Overview
 
