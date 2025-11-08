@@ -8,23 +8,24 @@ variable "jenkins_asg_name" {
   type        = string
 }
 
-variable "alb_arn_suffix" {
-  description = "ALB ARN suffix"
+variable "jenkins_url" {
+  description = "Jenkins URL for metrics collection"
   type        = string
 }
 
-variable "target_group_arn_suffix" {
-  description = "Target group ARN suffix"
+variable "cost_alert_email" {
+  description = "Email for cost alerts"
   type        = string
 }
 
-variable "sns_topic_name" {
-  description = "SNS topic name for alerts"
+variable "monthly_budget_limit" {
+  description = "Monthly budget limit in USD"
   type        = string
+  default     = "200"
 }
 
 variable "common_tags" {
-  description = "Common tags"
+  description = "Common tags for all resources"
   type        = map(string)
   default     = {}
 }

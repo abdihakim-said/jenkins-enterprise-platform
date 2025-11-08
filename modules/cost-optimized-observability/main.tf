@@ -1,43 +1,50 @@
 # Cost-Optimized Observability Module
-# Runs on existing Jenkins infrastructure - saves ~$105/month vs ECS
+# Enhanced Enterprise Monitoring - saves ~$105/month vs ECS
 
-# CloudWatch Dashboard for Jenkins metrics
+# Enhanced Enterprise CloudWatch Dashboard
 resource "aws_cloudwatch_dashboard" "jenkins_observability" {
-  dashboard_name = "${var.project_name}-${var.environment}-observability"
+  dashboard_name = "${var.project_name}-${var.environment}-enterprise-dashboard"
 
   dashboard_body = jsonencode({
     widgets = [
+      # Infrastructure Health Overview
       {
         type   = "metric"
         x      = 0
         y      = 0
-        width  = 12
+        width  = 8
         height = 6
-
         properties = {
           metrics = [
-            ["AWS/EC2", "CPUUtilization", "AutoScalingGroupName", "${var.project_name}-${var.environment}-jenkins-asg"],
-            [".", "NetworkIn", ".", "."],
-            [".", "NetworkOut", ".", "."]
+            ["AWS/EC2", "CPUUtilization", "AutoScalingGroupName", "jenkins-enterprise-platform-dev-blue-asg"],
+            [".", "StatusCheckFailed", ".", "."],
+            ["AWS/ApplicationELB", "HealthyHostCount", "TargetGroup", "dev-jenkins-tg", "LoadBalancer", data.aws_lb.jenkins.arn_suffix],
+            [".", "UnHealthyHostCount", ".", ".", ".", "."]
           ]
           view    = "timeSeries"
           stacked = false
           region  = var.aws_region
-          title   = "Jenkins Infrastructure Metrics"
+          title   = "🏗️ Infrastructure Health"
           period  = 300
+          yAxis = {
+            left = {
+              min = 0
+            }
+          }
         }
       },
+      
+      # Application Performance
       {
         type   = "metric"
-        x      = 0
-        y      = 6
-        width  = 12
+        x      = 8
+        y      = 0
+        width  = 8
         height = 6
-
         properties = {
           metrics = [
             ["AWS/ApplicationELB", "RequestCount", "LoadBalancer", data.aws_lb.jenkins.arn_suffix],
-            [".", "ResponseTime", ".", "."],
+            [".", "TargetResponseTime", ".", "."],
             [".", "HTTPCode_Target_2XX_Count", ".", "."],
             [".", "HTTPCode_Target_4XX_Count", ".", "."],
             [".", "HTTPCode_Target_5XX_Count", ".", "."]
@@ -45,173 +52,201 @@ resource "aws_cloudwatch_dashboard" "jenkins_observability" {
           view    = "timeSeries"
           stacked = false
           region  = var.aws_region
-          title   = "Jenkins Application Performance"
+          title   = "🚀 Application Performance"
           period  = 300
+        }
+      },
+
+      # Cost Optimization Metrics
+      {
+        type   = "metric"
+        x      = 16
+        y      = 0
+        width  = 8
+        height = 6
+        properties = {
+          metrics = [
+            ["AWS/Billing", "EstimatedCharges", "Currency", "USD"],
+            ["AWS/EC2", "CPUUtilization", "AutoScalingGroupName", "jenkins-enterprise-platform-dev-blue-asg"],
+            ["AWS/EFS", "StorageBytes", "StorageClass", "Total", "FileSystemId", data.aws_efs_file_system.jenkins.id]
+          ]
+          view    = "timeSeries"
+          stacked = false
+          region  = var.aws_region
+          title   = "💰 Cost Optimization"
+          period  = 3600
+          stat    = "Maximum"
+        }
+      },
+
+      # EFS Performance & Storage
+      {
+        type   = "metric"
+        x      = 0
+        y      = 6
+        width  = 12
+        height = 6
+        properties = {
+          metrics = [
+            ["AWS/EFS", "DataReadIOBytes", "FileSystemId", data.aws_efs_file_system.jenkins.id],
+            ["AWS/EFS", "DataWriteIOBytes", "FileSystemId", data.aws_efs_file_system.jenkins.id],
+            ["AWS/EFS", "ClientConnections", "FileSystemId", data.aws_efs_file_system.jenkins.id],
+            ["AWS/EFS", "PercentIOLimit", "FileSystemId", data.aws_efs_file_system.jenkins.id],
+            ["AWS/EFS", "StorageBytes", "StorageClass", "Total", "FileSystemId", data.aws_efs_file_system.jenkins.id]
+          ]
+          view    = "timeSeries"
+          stacked = false
+          region  = var.aws_region
+          title   = "💾 EFS Storage Performance"
+          period  = 300
+        }
+      },
+
+      # Blue/Green Deployment Status
+      {
+        type   = "metric"
+        x      = 12
+        y      = 6
+        width  = 12
+        height = 6
+        properties = {
+          metrics = [
+            ["AWS/AutoScaling", "GroupDesiredCapacity", "AutoScalingGroupName", "jenkins-enterprise-platform-dev-blue-asg"],
+            ["AWS/AutoScaling", "GroupInServiceInstances", "AutoScalingGroupName", "jenkins-enterprise-platform-dev-blue-asg"],
+            ["AWS/AutoScaling", "GroupDesiredCapacity", "AutoScalingGroupName", "jenkins-enterprise-platform-dev-green-asg"],
+            ["AWS/AutoScaling", "GroupInServiceInstances", "AutoScalingGroupName", "jenkins-enterprise-platform-dev-green-asg"]
+          ]
+          view    = "timeSeries"
+          stacked = false
+          region  = var.aws_region
+          title   = "🔄 Blue/Green Deployment Status"
+          period  = 300
+          annotations = {
+            horizontal = [
+              {
+                label = "Target Capacity"
+                value = 1
+              }
+            ]
+          }
+        }
+      },
+
+      # Security & Compliance
+      {
+        type   = "metric"
+        x      = 0
+        y      = 12
+        width  = 8
+        height = 6
+        properties = {
+          metrics = [
+            ["AWS/ApplicationELB", "HTTPCode_Target_4XX_Count", "LoadBalancer", data.aws_lb.jenkins.arn_suffix],
+            [".", "HTTPCode_Target_5XX_Count", ".", "."],
+            ["AWS/EC2", "StatusCheckFailed_Instance", "AutoScalingGroupName", "jenkins-enterprise-platform-dev-blue-asg"],
+            [".", "StatusCheckFailed_System", ".", "."]
+          ]
+          view    = "timeSeries"
+          stacked = false
+          region  = var.aws_region
+          title   = "🛡️ Security & Health Checks"
+          period  = 300
+        }
+      },
+
+      # SLA & Uptime Tracking
+      {
+        type   = "metric"
+        x      = 8
+        y      = 12
+        width  = 16
+        height = 6
+        properties = {
+          metrics = [
+            ["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", data.aws_lb.jenkins.arn_suffix],
+            [".", "HTTPCode_Target_2XX_Count", ".", "."]
+          ]
+          view    = "singleValue"
+          region  = var.aws_region
+          title   = "📊 SLA Metrics (99.9% Target)"
+          period  = 300
+          stat    = "Average"
         }
       }
     ]
   })
 }
 
-# CloudWatch Alarms for critical metrics
-resource "aws_cloudwatch_metric_alarm" "jenkins_high_cpu" {
-  alarm_name          = "${var.project_name}-${var.environment}-jenkins-high-cpu"
+# Enhanced CloudWatch Alarms for Enterprise Monitoring
+resource "aws_cloudwatch_metric_alarm" "efs_high_io" {
+  alarm_name          = "${var.project_name}-${var.environment}-efs-high-io"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = "2"
-  metric_name         = "CPUUtilization"
-  namespace           = "AWS/EC2"
+  metric_name         = "PercentIOLimit"
+  namespace           = "AWS/EFS"
   period              = "300"
   statistic           = "Average"
   threshold           = "80"
-  alarm_description   = "This metric monitors jenkins cpu utilization"
+  alarm_description   = "EFS IO utilization is high - may impact Jenkins performance"
   alarm_actions       = [aws_sns_topic.alerts.arn]
 
   dimensions = {
-    AutoScalingGroupName = "${var.project_name}-${var.environment}-jenkins-asg"
+    FileSystemId = data.aws_efs_file_system.jenkins.id
   }
 
-  tags = local.common_tags
+  tags = {
+    Name        = "EFS High IO Alarm"
+    Environment = var.environment
+    Project     = var.project_name
+  }
 }
 
-resource "aws_cloudwatch_metric_alarm" "jenkins_high_response_time" {
-  alarm_name          = "${var.project_name}-${var.environment}-jenkins-high-response-time"
+resource "aws_cloudwatch_metric_alarm" "jenkins_high_load" {
+  alarm_name          = "${var.project_name}-${var.environment}-high-load"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = "2"
-  metric_name         = "TargetResponseTime"
+  metric_name         = "RequestCount"
   namespace           = "AWS/ApplicationELB"
   period              = "300"
-  statistic           = "Average"
-  threshold           = "2"
-  alarm_description   = "This metric monitors jenkins response time"
+  statistic           = "Sum"
+  threshold           = "100"
+  alarm_description   = "High request volume - potential build queue backup"
   alarm_actions       = [aws_sns_topic.alerts.arn]
 
   dimensions = {
     LoadBalancer = data.aws_lb.jenkins.arn_suffix
   }
 
-  tags = local.common_tags
-}
-
-# SNS Topic for alerts
-resource "aws_sns_topic" "alerts" {
-  name = "${var.project_name}-${var.environment}-observability-alerts"
-  tags = local.common_tags
-}
-
-# S3 bucket for log aggregation (cost-optimized lifecycle)
-resource "aws_s3_bucket" "logs" {
-  bucket        = "${var.project_name}-${var.environment}-logs-${random_id.bucket_suffix.hex}"
-  force_destroy = false
-  tags          = local.common_tags
-}
-
-# S3 Bucket Public Access Block
-resource "aws_s3_bucket_public_access_block" "logs" {
-  bucket = aws_s3_bucket.logs.id
-
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}
-
-resource "aws_s3_bucket_lifecycle_configuration" "logs" {
-  bucket = aws_s3_bucket.logs.id
-
-  rule {
-    id     = "logs_lifecycle"
-    status = "Enabled"
-
-    filter {
-      prefix = ""
-    }
-
-    transition {
-      days          = 30
-      storage_class = "STANDARD_IA"
-    }
-
-    transition {
-      days          = 90
-      storage_class = "GLACIER"
-    }
-
-    expiration {
-      days = 365  # 1 year retention
-    }
-  }
-}
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "logs" {
-  bucket = aws_s3_bucket.logs.id
-
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
-}
-
-# CloudWatch Log Group for Jenkins application logs
-resource "aws_cloudwatch_log_group" "jenkins_app" {
-  name              = "/jenkins/${var.environment}/application"
-  retention_in_days = 30
-  tags              = local.common_tags
-}
-
-# CloudWatch Log Group for system logs
-resource "aws_cloudwatch_log_group" "jenkins_system" {
-  name              = "/jenkins/${var.environment}/system"
-  retention_in_days = 14
-  tags              = local.common_tags
-}
-
-# Custom CloudWatch metrics for Jenkins jobs
-resource "aws_cloudwatch_log_metric_filter" "jenkins_job_success" {
-  name           = "${var.project_name}-${var.environment}-jenkins-job-success"
-  log_group_name = aws_cloudwatch_log_group.jenkins_app.name
-  pattern        = "[timestamp, level=\"INFO\", message=\"Build successful\"]"
-
-  metric_transformation {
-    name      = "JenkinsJobSuccess"
-    namespace = "Jenkins/Jobs"
-    value     = "1"
-  }
-}
-
-resource "aws_cloudwatch_log_metric_filter" "jenkins_job_failure" {
-  name           = "${var.project_name}-${var.environment}-jenkins-job-failure"
-  log_group_name = aws_cloudwatch_log_group.jenkins_app.name
-  pattern        = "[timestamp, level=\"ERROR\", message=\"Build failed\"]"
-
-  metric_transformation {
-    name      = "JenkinsJobFailure"
-    namespace = "Jenkins/Jobs"
-    value     = "1"
-  }
-}
-
-# Data sources
-data "aws_lb" "jenkins" {
-  name = "${var.environment}-jenkins-alb"
-}
-
-resource "random_id" "bucket_suffix" {
-  byte_length = 4
-}
-
-# Local values
-locals {
-  common_tags = {
-    Name        = "${var.project_name}-${var.environment}-cost-optimized-observability"
+  tags = {
+    Name        = "Jenkins High Load Alarm"
     Environment = var.environment
     Project     = var.project_name
-    Module      = "cost-optimized-observability"
-    ManagedBy   = "Terraform"
-    CreatedBy   = "Terraform"
-    Owner       = "DevOps Team"
-    Epic        = "Epic-2-Golden-Image"
-    CostCenter  = "DevOps"
-    Purpose     = "Cost-optimized observability and monitoring"
   }
+}
+
+# SNS Topic for Enhanced Alerts
+resource "aws_sns_topic" "alerts" {
+  name = "${var.project_name}-${var.environment}-enhanced-alerts"
+
+  tags = {
+    Name        = "Enhanced Monitoring Alerts"
+    Environment = var.environment
+    Project     = var.project_name
+  }
+}
+
+resource "aws_sns_topic_subscription" "email_alerts" {
+  count     = var.alert_email != "" ? 1 : 0
+  topic_arn = aws_sns_topic.alerts.arn
+  protocol  = "email"
+  endpoint  = var.alert_email
+}
+
+# Data sources for existing resources
+data "aws_lb" "jenkins" {
+  name = "dev-jenkins-alb"
+}
+
+data "aws_efs_file_system" "jenkins" {
+  file_system_id = "fs-0a1c496937c7252d3"
 }

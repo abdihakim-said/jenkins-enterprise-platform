@@ -44,6 +44,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "cost_reports" {
     id     = "cost_reports_lifecycle"
     status = "Enabled"
     
+    filter {
+      prefix = "cost-reports/"
+    }
+    
     # Daily reports
     transition {
       days          = 30
@@ -69,11 +73,9 @@ resource "aws_budgets_budget" "jenkins_cost_budget" {
   limit_unit   = "USD"
   time_unit    = "MONTHLY"
   
-  cost_filters {
-    tag {
-      key = "Project"
-      values = ["jenkins-enterprise-platform"]
-    }
+  cost_filter {
+    name   = "TagKeyValue"
+    values = ["Project$jenkins-enterprise-platform"]
   }
   
   notification {
@@ -297,10 +299,5 @@ data "aws_region" "current" {}
 data "archive_file" "cost_optimizer_zip" {
   type        = "zip"
   output_path = "${path.module}/cost_optimizer.zip"
-  source {
-    content = templatefile("${path.module}/cost_optimizer.py", {
-      environment = var.environment
-    })
-    filename = "cost_optimizer.py"
-  }
+  source_file = "${path.module}/cost_optimizer.py"
 }

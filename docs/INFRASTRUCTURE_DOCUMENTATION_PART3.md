@@ -588,7 +588,7 @@ TOTAL:       $135.55/month
 **Total Savings**: $193.50/month (59% reduction)
 
 **Potential Additional Savings**:
-- Use Spot Instances for dev: Save $7/month
+- Right-size instances for dev: Save $15/month
 - Reserved Instances (1-year): Save $30/month
 - Reduce log retention: Save $2/month
 - Part-time bastion: Save $4/month

@@ -30,7 +30,7 @@ image_id = data.aws_ami.jenkins_golden.id
 ```
 
 **Files Modified:**
-- `modules/jenkins/main.tf` (line 36)
+- `modules/blue-green-deployment/main.tf` (Jenkins configuration now in blue-green module)
 
 ---
 
@@ -63,7 +63,7 @@ sudo apt purge -y nis
 #### B. Duplicate EFS Mount Logic in User Data
 **Problem**: User data script had conflicting mount logic causing failures.
 
-**Solution**: Complete rewrite of `modules/jenkins/user_data.sh` with:
+**Solution**: Complete rewrite of `modules/blue-green-deployment/user_data.sh` with:
 - Removed duplicate mount code (lines 73-137)
 - Added fallback EFS utils installation
 - Multiple mount methods (NFS4 + EFS utils)
@@ -94,7 +94,7 @@ mount.nfs4 --version || (echo 'EFS utils validation failed' && exit 1)
 
 ### **Step 1: Fix AMI Selection Logic**
 ```bash
-# File: modules/jenkins/main.tf
+# File: modules/blue-green-deployment/main.tf
 - image_id = var.jenkins_ami_id != "" ? var.jenkins_ami_id : data.aws_ami.jenkins_golden.id
 + image_id = data.aws_ami.jenkins_golden.id
 ```
@@ -108,7 +108,7 @@ mount.nfs4 --version || (echo 'EFS utils validation failed' && exit 1)
 ```
 
 ### **Step 3: Fix User Data Script**
-Complete rewrite of `modules/jenkins/user_data.sh` with:
+Complete rewrite of `modules/blue-green-deployment/user_data.sh` with:
 - Enhanced error handling
 - Multiple EFS mount methods
 - Fallback mechanisms

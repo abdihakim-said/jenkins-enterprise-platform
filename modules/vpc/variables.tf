@@ -1,6 +1,16 @@
 # VPC Module - Variables
 # Author: Abdihakim Said
 
+variable "kms_key_arn" {
+  description = "KMS key ARN for CloudWatch log group encryption"
+  type        = string
+}
+
+variable "kms_key_id" {
+  description = "KMS key ID for encryption"
+  type        = string
+}
+
 variable "project_name" {
   description = "Name of the project"
   type        = string

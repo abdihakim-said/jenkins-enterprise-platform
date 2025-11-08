@@ -1,7 +1,7 @@
 #!/usr/bin/env groovy
 /*
  * Infrastructure Deployment Pipeline - Aligned with Current Terraform Setup
- * Uses existing modules: vpc, security, iam, efs, alb, jenkins, cloudwatch, inspector
+ * Uses existing modules: vpc, security, iam, efs, alb, blue-green-deployment, cloudwatch, inspector, cost-optimized-observability, cost-optimization
  */
 
 pipeline {

@@ -77,7 +77,7 @@ resource "aws_iam_policy" "jenkins" {
       {
         Effect = "Allow"
         Action = [
-          # EC2 permissions for Jenkins agents
+          # EC2 describe permissions (global actions)
           "ec2:DescribeInstances",
           "ec2:DescribeImages",
           "ec2:DescribeKeyPairs",
@@ -85,36 +85,65 @@ resource "aws_iam_policy" "jenkins" {
           "ec2:DescribeSecurityGroups",
           "ec2:DescribeSubnets",
           "ec2:DescribeVpcs",
+          "ec2:DescribeTags",
+          "ec2:DescribeInstanceTypeOfferings",
+          "ec2:DescribeSnapshots"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          # EC2 instance management
           "ec2:RunInstances",
           "ec2:TerminateInstances",
           "ec2:StopInstances",
           "ec2:CreateTags",
-          "ec2:DescribeTags",
+          "ec2:ModifyInstanceAttribute"
+        ]
+        Resource = [
+          "arn:aws:ec2:*:${data.aws_caller_identity.current.account_id}:instance/*",
+          "arn:aws:ec2:*:${data.aws_caller_identity.current.account_id}:security-group/*",
+          "arn:aws:ec2:*:${data.aws_caller_identity.current.account_id}:key-pair/*",
+          "arn:aws:ec2:*::image/*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
           # Packer permissions for AMI building
           "ec2:CreateKeyPair",
           "ec2:DeleteKeyPair",
           "ec2:CreateImage",
           "ec2:RegisterImage",
           "ec2:DeregisterImage",
-          "ec2:CopyImage",
-          "ec2:DescribeInstanceTypeOfferings",
           "ec2:CreateSnapshot",
           "ec2:DeleteSnapshot",
-          "ec2:DescribeSnapshots",
           "ec2:ModifyImageAttribute",
-          "ec2:ModifyInstanceAttribute",
           "ec2:CreateSecurityGroup",
           "ec2:DeleteSecurityGroup",
           "ec2:AuthorizeSecurityGroupIngress",
           "ec2:RevokeSecurityGroupIngress"
         ]
         Resource = [
-          "arn:aws:ec2:*:${data.aws_caller_identity.current.account_id}:instance/*",
           "arn:aws:ec2:*:${data.aws_caller_identity.current.account_id}:image/*",
           "arn:aws:ec2:*:${data.aws_caller_identity.current.account_id}:snapshot/*",
           "arn:aws:ec2:*:${data.aws_caller_identity.current.account_id}:security-group/*",
           "arn:aws:ec2:*:${data.aws_caller_identity.current.account_id}:key-pair/*",
           "arn:aws:ec2:*::image/*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          # Cross-region AMI copy for disaster recovery
+          "ec2:CopyImage"
+        ]
+        Resource = [
+          "arn:aws:ec2:*:${data.aws_caller_identity.current.account_id}:image/*",
+          "arn:aws:ec2:*:${data.aws_caller_identity.current.account_id}:snapshot/*",
+          "arn:aws:ec2:*::image/*",
+          "arn:aws:ec2:*::snapshot/*"
         ]
       },
       {
@@ -232,6 +261,26 @@ resource "aws_kms_key" "jenkins" {
           "kms:DescribeKey"
         ]
         Resource = "*"
+      },
+      {
+        Sid    = "Allow CloudWatch Logs"
+        Effect = "Allow"
+        Principal = {
+          Service = "logs.us-east-1.amazonaws.com"
+        }
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ]
+        Resource = "*"
+        Condition = {
+          ArnEquals = {
+            "kms:EncryptionContext:aws:logs:arn" = "arn:aws:logs:us-east-1:${data.aws_caller_identity.current.account_id}:*"
+          }
+        }
       }
     ]
   })

@@ -49,6 +49,7 @@ resource "aws_sns_topic" "deployment_notifications" {
 resource "aws_cloudwatch_log_group" "deployment_logs" {
   name              = "/aws/jenkins/${var.environment}/blue-green-deployment"
   retention_in_days = 30
+  kms_key_id        = var.kms_key_arn
   
   tags = local.common_tags
 }

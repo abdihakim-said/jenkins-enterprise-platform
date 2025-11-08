@@ -44,6 +44,8 @@ module "vpc" {
   availability_zones   = data.aws_availability_zones.available.names
   public_subnet_cidrs  = var.public_subnet_cidrs
   private_subnet_cidrs = var.private_subnet_cidrs
+  kms_key_id           = module.iam.kms_key_id
+  kms_key_arn          = module.iam.kms_key_arn
 
   tags = local.common_tags
 }
@@ -104,6 +106,7 @@ module "cloudwatch" {
   project_name = var.project_name
   environment  = var.environment
   kms_key_id   = module.iam.kms_key_id
+  kms_key_arn  = module.iam.kms_key_arn
 
   tags = local.common_tags
 }
@@ -133,6 +136,7 @@ module "blue_green_deployment" {
   efs_file_system_id   = module.efs.file_system_id
   aws_region           = var.aws_region
   kms_key_id           = module.iam.kms_key_id
+  kms_key_arn          = module.iam.kms_key_arn
 
   # Blue/Green specific configuration
   instance_type = var.jenkins_instance_type
@@ -153,6 +157,24 @@ module "cost_optimized_observability" {
   depends_on = [
     module.blue_green_deployment,
     module.alb
+  ]
+}
+
+# Cost Optimization Module
+# Automated scaling, budgets, and cost analytics
+module "cost_optimization" {
+  source = "./modules/cost-optimization"
+
+  environment         = var.environment
+  jenkins_asg_name    = module.blue_green_deployment.blue_asg_name
+  jenkins_url         = "https://${module.alb.dns_name}"
+  cost_alert_email    = var.alert_email
+  monthly_budget_limit = "200"
+  
+  common_tags = local.common_tags
+
+  depends_on = [
+    module.blue_green_deployment
   ]
 }
 

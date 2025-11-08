@@ -5,6 +5,7 @@
 resource "aws_cloudwatch_log_group" "jenkins_application" {
   name              = "/jenkins/${var.environment}/application"
   retention_in_days = 30
+  kms_key_id        = var.kms_key_arn
 
   tags = merge(var.tags, {
     Name = "/jenkins/${var.environment}/application"
@@ -15,6 +16,7 @@ resource "aws_cloudwatch_log_group" "jenkins_application" {
 resource "aws_cloudwatch_log_group" "jenkins_user_data" {
   name              = "/jenkins/${var.environment}/user-data"
   retention_in_days = 7
+  kms_key_id        = var.kms_key_arn
 
   tags = merge(var.tags, {
     Name = "/jenkins/${var.environment}/user-data"
@@ -25,6 +27,7 @@ resource "aws_cloudwatch_log_group" "jenkins_user_data" {
 resource "aws_cloudwatch_log_group" "jenkins_system" {
   name              = "/jenkins/${var.environment}/system"
   retention_in_days = 14
+  kms_key_id        = var.kms_key_arn
 
   tags = merge(var.tags, {
     Name = "/jenkins/${var.environment}/system"

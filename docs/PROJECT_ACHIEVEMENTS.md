@@ -264,7 +264,7 @@ Compliance Validation:       Quarterly manual → Every deployment
 
 ### 6. Modular Terraform Architecture
 
-**Achievement**: 23 reusable Terraform modules for enterprise scalability
+**Achievement**: 13 reusable Terraform modules for enterprise scalability
 
 **Technical Implementation**:
 ```
@@ -294,7 +294,7 @@ modules/
 **Code Metrics**:
 ```
 Total Terraform Code:    3,500+ lines
-Modules:                 23 specialized modules
+Modules:                 13 specialized modules
 Reusability:             95% code reuse across environments
 Deployment Time:         8 minutes (standard) / 12 minutes (blue-green)
 ```
@@ -612,7 +612,7 @@ jenkins:
 ### Senior-Level DevOps Skills
 
 **Infrastructure as Code**:
-- Advanced Terraform with 23 custom modules
+- Advanced Terraform with 13 custom modules
 - Modular, reusable, maintainable architecture
 - Multi-environment management
 - State management and remote backends
@@ -770,7 +770,7 @@ jenkins:
 - **Best Practices**: AWS Well-Architected, security-first, cost-optimized
 
 ### For Technical Teams
-- **Reusable Architecture**: 23 Terraform modules for rapid deployment
+- **Reusable Architecture**: 13 Terraform modules for rapid deployment
 - **Automation**: Zero-touch deployments with automatic rollback
 - **Security**: 100% automated security scanning coverage
 - **Reliability**: 99.99% availability with multi-AZ deployment
