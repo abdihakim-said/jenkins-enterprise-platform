@@ -58,3 +58,13 @@ node_modules/
 secrets/
 private/
 *.secret
+
+# Personal content (NEVER COMMIT)
+interview-preparation*/
+personal*/
+
+# Test scripts (personal)
+test-iam-permissions.sh
+
+# Cleanup scripts (temporary)
+cleanup-unnecessary-files*.sh
