@@ -1,4 +1,5 @@
 # Cost-Optimized Observability Module
+# Author: Abdihakim Said
 # Enhanced Enterprise Monitoring - saves ~$105/month vs ECS
 
 # Enhanced Enterprise CloudWatch Dashboard

@@ -1,4 +1,5 @@
 # Golden AMI Module - Story 2.4: Terraform calling Packer
+# Author: Abdihakim Said
 
 resource "null_resource" "golden_ami_build" {
   triggers = {

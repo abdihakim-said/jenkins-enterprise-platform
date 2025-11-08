@@ -1,4 +1,5 @@
 # Enterprise Blue/Green Deployment Module for Jenkins Platform
+# Author: Abdihakim Said
 # Features: Zero-downtime, automated rollback, health checks, canary deployments
 
 terraform {

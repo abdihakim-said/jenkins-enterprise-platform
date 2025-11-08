@@ -1,4 +1,5 @@
 # AWS Inspector Module for Vulnerability Scanning
+# Author: Abdihakim Said
 # Epic 4: Story 5.4: Jenkins Master Vulnerability scanning
 
 # Note: AWS Inspector Classic is being deprecated. Using Inspector V2 approach.

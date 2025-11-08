@@ -1,4 +1,5 @@
 # Jenkins Cost Optimization Module
+# Author: Abdihakim Said
 # Implements intelligent cost management with S3 storage and automation
 
 # S3 Bucket for Cost Reports and Analytics
