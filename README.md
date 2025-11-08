@@ -595,7 +595,39 @@ This enterprise setup supports **50+ developers** across **4 teams** with **99.9
 - **Performance**: Sub-second execution for deployment decisions
 - **Integration**: Native CloudWatch Events integration
 
-#### **Decision 5: Terraform vs CloudFormation**
+#### **Decision 5: Jenkins vs GitHub Actions/GitLab CI**
+
+**Context**: Client needed a CI/CD platform for enterprise development workflows
+
+**Decision**: **Jenkins** over GitHub Actions and GitLab CI
+
+**Rationale**:
+- **Enterprise Control**: Self-hosted solution with complete data sovereignty
+- **Compliance Requirements**: Client's financial data cannot use SaaS CI/CD platforms
+- **Plugin Ecosystem**: 1,800+ plugins vs limited GitHub Actions marketplace
+- **Complex Workflows**: Multi-stage pipelines with conditional logic and approvals
+- **Integration Flexibility**: Existing LDAP, JIRA, and legacy system integrations
+- **Cost at Scale**: $110/month vs $21/user/month (GitHub) for 50+ developers = $1,050/month
+- **Customization**: Full control over build environments and security policies
+
+**Trade-offs Accepted**:
+- Infrastructure maintenance vs managed service simplicity
+- Setup complexity vs GitHub's zero-configuration approach
+- Security responsibility vs vendor-managed security
+
+**Comparison Analysis**:
+```
+| Aspect | Jenkins | GitHub Actions | GitLab CI |
+|--------|---------|----------------|-----------|
+| Cost (50 users) | $110/month | $1,050/month | $950/month |
+| Data Control | ✅ Full | ❌ SaaS | ❌ SaaS |
+| Compliance | ✅ SOC2/PCI | ❌ Limited | ❌ Limited |
+| Customization | ✅ Unlimited | ❌ Restricted | ❌ Restricted |
+| Maintenance | ❌ Self-managed | ✅ Managed | ✅ Managed |
+| Setup Time | ❌ 2-3 days | ✅ Minutes | ✅ Minutes |
+```
+
+#### **Decision 6: Terraform vs CloudFormation**
 
 **Context**: Infrastructure as Code tool selection
 
