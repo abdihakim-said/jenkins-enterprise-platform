@@ -32,7 +32,7 @@ pipeline {
     
     stages {
         stage('🔒 Infrastructure Security Scan') {
-            when { not { params.SKIP_SECURITY_SCAN } }
+            when { !params.SKIP_SECURITY_SCAN }
             parallel {
                 stage('TFSec Scan') {
                     steps {
@@ -177,7 +177,7 @@ pipeline {
         }
         
         stage('🚀 Deploy Infrastructure') {
-            when { not { params.DRY_RUN } }
+            when { !params.DRY_RUN }
             steps {
                 script {
                     sh '''
@@ -197,7 +197,7 @@ pipeline {
         }
         
         stage('✅ Post-Deployment Validation') {
-            when { not { params.DRY_RUN } }
+            when { !params.DRY_RUN }
             parallel {
                 stage('Health Check') {
                     steps {
@@ -284,7 +284,7 @@ pipeline {
         }
         
         stage('📋 Generate Deployment Report') {
-            when { not { params.DRY_RUN } }
+            when { !params.DRY_RUN }
             steps {
                 script {
                     sh '''
