@@ -176,6 +176,30 @@ resource "aws_iam_policy" "jenkins" {
       {
         Effect = "Allow"
         Action = [
+          # Read permissions for Terraform state management
+          "lambda:GetFunction",
+          "lambda:GetPolicy",
+          "securityhub:DescribeHub",
+          "guardduty:GetDetector",
+          "cloudtrail:DescribeTrails",
+          "s3:GetBucket*",
+          "iam:GetRole",
+          "iam:GetPolicy",
+          "cloudwatch:GetDashboard",
+          "cloudwatch:DescribeAlarms",
+          "events:DescribeRule",
+          "events:ListTargetsByRule",
+          "config:DescribeConfigRules",
+          "sns:GetTopicAttributes",
+          "sns:GetSubscriptionAttributes",
+          "ec2:DescribeAvailabilityZones",
+          "ec2:DescribeVpcAttribute"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
           # EFS permissions
           "elasticfilesystem:DescribeFileSystems",
           "elasticfilesystem:DescribeMountTargets"
