@@ -180,10 +180,12 @@ resource "aws_iam_policy" "jenkins" {
           "lambda:GetFunction",
           "lambda:GetPolicy",
           "lambda:ListVersionsByFunction",
+          "lambda:GetFunctionCodeSigningConfig",
           "securityhub:DescribeHub",
           "guardduty:GetDetector",
           "cloudtrail:DescribeTrails",
           "cloudtrail:GetTrailStatus",
+          "cloudtrail:ListTags",
           "s3:GetBucket*",
           "s3:GetEncryptionConfiguration",
           "iam:GetRole",
@@ -191,6 +193,7 @@ resource "aws_iam_policy" "jenkins" {
           "iam:GetPolicyVersion",
           "iam:GetRolePolicy",
           "iam:ListRolePolicies",
+          "iam:ListAttachedRolePolicies",
           "cloudwatch:GetDashboard",
           "cloudwatch:DescribeAlarms",
           "cloudwatch:ListTagsForResource",
@@ -208,8 +211,14 @@ resource "aws_iam_policy" "jenkins" {
           "ec2:DescribeSecurityGroupRules",
           "ec2:DescribeInternetGateways",
           "ec2:DescribeVpcEndpoints",
+          "ec2:DescribeInstanceAttribute",
+          "ec2:DescribeAddresses",
+          "ec2:DescribeRouteTables",
+          "ec2:DescribePrefixLists",
           "elasticloadbalancing:DescribeLoadBalancers",
-          "elasticloadbalancing:DescribeTargetGroups"
+          "elasticloadbalancing:DescribeTargetGroups",
+          "elasticloadbalancing:DescribeLoadBalancerAttributes",
+          "elasticloadbalancing:DescribeTargetGroupAttributes"
         ]
         Resource = "*"
       },
