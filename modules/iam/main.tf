@@ -176,24 +176,40 @@ resource "aws_iam_policy" "jenkins" {
       {
         Effect = "Allow"
         Action = [
-          # Read permissions for Terraform state management
+          # Comprehensive read permissions for Terraform state management
           "lambda:GetFunction",
           "lambda:GetPolicy",
+          "lambda:ListVersionsByFunction",
           "securityhub:DescribeHub",
           "guardduty:GetDetector",
           "cloudtrail:DescribeTrails",
+          "cloudtrail:GetTrailStatus",
           "s3:GetBucket*",
+          "s3:GetEncryptionConfiguration",
           "iam:GetRole",
           "iam:GetPolicy",
+          "iam:GetPolicyVersion",
+          "iam:GetRolePolicy",
+          "iam:ListRolePolicies",
           "cloudwatch:GetDashboard",
           "cloudwatch:DescribeAlarms",
+          "cloudwatch:ListTagsForResource",
           "events:DescribeRule",
           "events:ListTargetsByRule",
+          "events:ListTagsForResource",
           "config:DescribeConfigRules",
+          "config:ListTagsForResource",
           "sns:GetTopicAttributes",
           "sns:GetSubscriptionAttributes",
+          "sns:ListTagsForResource",
           "ec2:DescribeAvailabilityZones",
-          "ec2:DescribeVpcAttribute"
+          "ec2:DescribeVpcAttribute",
+          "ec2:DescribeInstanceTypes",
+          "ec2:DescribeSecurityGroupRules",
+          "ec2:DescribeInternetGateways",
+          "ec2:DescribeVpcEndpoints",
+          "elasticloadbalancing:DescribeLoadBalancers",
+          "elasticloadbalancing:DescribeTargetGroups"
         ]
         Resource = "*"
       },
