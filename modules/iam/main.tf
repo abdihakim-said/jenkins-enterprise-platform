@@ -164,6 +164,18 @@ resource "aws_iam_policy" "jenkins" {
       {
         Effect = "Allow"
         Action = [
+          # DynamoDB permissions for Terraform state locking
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:DeleteItem"
+        ]
+        Resource = [
+          "arn:aws:dynamodb:*:*:table/jenkins-terraform-locks"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
           # EFS permissions
           "elasticfilesystem:DescribeFileSystems",
           "elasticfilesystem:DescribeMountTargets"
