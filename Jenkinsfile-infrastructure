@@ -5,7 +5,7 @@
  */
 
 pipeline {
-    agent { label 'master' }
+    agent { node { label 'built-in' } }
     
     parameters {
         choice(name: 'ENVIRONMENT', choices: ['dev', 'staging', 'production'], description: 'Target environment')
