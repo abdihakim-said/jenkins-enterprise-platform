@@ -122,15 +122,12 @@ pipeline {
                     sh '''
                         echo "🏗️ Planning infrastructure for ${ENVIRONMENT}..."
                         
-                        # Use environment-specific directory structure
-                        cd environments/${ENVIRONMENT}
-                        
-                        # Initialize Terraform
+                        # Initialize Terraform in root directory
                         terraform init
                         terraform validate
                         
-                        # Plan deployment
-                        terraform plan -out=${ENVIRONMENT}-deploy.tfplan
+                        # Plan deployment with environment-specific variables
+                        terraform plan -var-file="environments/${ENVIRONMENT}/terraform.tfvars" -out=${ENVIRONMENT}-deploy.tfplan
                         
                         # Generate plan analysis
                         terraform show -json ${ENVIRONMENT}-deploy.tfplan > ../../${ENVIRONMENT}-plan.json
@@ -182,7 +179,7 @@ pipeline {
                 script {
                     sh '''
                         echo "🚀 Deploying infrastructure to ${ENVIRONMENT}..."
-                        cd environments/${ENVIRONMENT}
+                        # cd environments/${ENVIRONMENT}
                         
                         # Apply the plan
                         terraform apply -auto-approve ${ENVIRONMENT}-deploy.tfplan
