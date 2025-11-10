@@ -194,6 +194,8 @@ resource "aws_iam_policy" "jenkins" {
           "iam:GetRolePolicy",
           "iam:ListRolePolicies",
           "iam:ListAttachedRolePolicies",
+          "iam:GetInstanceProfile",
+          "kms:GetKeyPolicy",
           "cloudwatch:GetDashboard",
           "cloudwatch:DescribeAlarms",
           "cloudwatch:ListTagsForResource",
@@ -215,10 +217,14 @@ resource "aws_iam_policy" "jenkins" {
           "ec2:DescribeAddresses",
           "ec2:DescribeRouteTables",
           "ec2:DescribePrefixLists",
+          "ec2:DescribeInstanceCreditSpecifications",
+          "ec2:DescribeAddressesAttribute",
+          "ec2:DescribeNetworkInterfaces",
           "elasticloadbalancing:DescribeLoadBalancers",
           "elasticloadbalancing:DescribeTargetGroups",
           "elasticloadbalancing:DescribeLoadBalancerAttributes",
-          "elasticloadbalancing:DescribeTargetGroupAttributes"
+          "elasticloadbalancing:DescribeTargetGroupAttributes",
+          "elasticloadbalancing:DescribeTags"
         ]
         Resource = "*"
       },
