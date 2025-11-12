@@ -300,6 +300,39 @@ resource "aws_autoscaling_group" "green" {
   }
 }
 
+# Auto Scaling Policies for Blue Environment
+resource "aws_autoscaling_policy" "blue_scale_up" {
+  name                   = "${local.blue_name_prefix}-scale-up"
+  scaling_adjustment     = 1
+  adjustment_type        = "ChangeInCapacity"
+  cooldown               = 300
+  autoscaling_group_name = aws_autoscaling_group.blue.name
+  policy_type            = "SimpleScaling"
+}
+
+resource "aws_autoscaling_policy" "blue_scale_down" {
+  name                   = "${local.blue_name_prefix}-scale-down"
+  scaling_adjustment     = -1
+  adjustment_type        = "ChangeInCapacity"
+  cooldown               = 300
+  autoscaling_group_name = aws_autoscaling_group.blue.name
+  policy_type            = "SimpleScaling"
+}
+
+# Target Tracking Policy for Blue Environment
+resource "aws_autoscaling_policy" "blue_target_tracking" {
+  name                   = "${local.blue_name_prefix}-target-tracking"
+  autoscaling_group_name = aws_autoscaling_group.blue.name
+  policy_type            = "TargetTrackingScaling"
+
+  target_tracking_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ASGAverageCPUUtilization"
+    }
+    target_value = 50.0
+  }
+}
+
 # CloudWatch Alarms for Blue Environment
 resource "aws_cloudwatch_metric_alarm" "blue_high_cpu" {
   alarm_name          = "${local.blue_name_prefix}-high-cpu"
@@ -309,15 +342,67 @@ resource "aws_cloudwatch_metric_alarm" "blue_high_cpu" {
   namespace           = "AWS/EC2"
   period              = "300"
   statistic           = "Average"
-  threshold           = "80"
+  threshold           = "75"
   alarm_description   = "This metric monitors blue environment CPU utilization"
-  alarm_actions       = [aws_sns_topic.deployment_notifications.arn]
+  alarm_actions       = [aws_autoscaling_policy.blue_scale_up.arn]
 
   dimensions = {
     AutoScalingGroupName = aws_autoscaling_group.blue.name
   }
 
   tags = local.common_tags
+}
+
+resource "aws_cloudwatch_metric_alarm" "blue_low_cpu" {
+  alarm_name          = "${local.blue_name_prefix}-low-cpu"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  period              = "300"
+  statistic           = "Average"
+  threshold           = "25"
+  alarm_description   = "This metric monitors blue environment low CPU utilization"
+  alarm_actions       = [aws_autoscaling_policy.blue_scale_down.arn]
+
+  dimensions = {
+    AutoScalingGroupName = aws_autoscaling_group.blue.name
+  }
+
+  tags = local.common_tags
+}
+
+# Auto Scaling Policies for Green Environment
+resource "aws_autoscaling_policy" "green_scale_up" {
+  name                   = "${local.green_name_prefix}-scale-up"
+  scaling_adjustment     = 1
+  adjustment_type        = "ChangeInCapacity"
+  cooldown               = 300
+  autoscaling_group_name = aws_autoscaling_group.green.name
+  policy_type            = "SimpleScaling"
+}
+
+resource "aws_autoscaling_policy" "green_scale_down" {
+  name                   = "${local.green_name_prefix}-scale-down"
+  scaling_adjustment     = -1
+  adjustment_type        = "ChangeInCapacity"
+  cooldown               = 300
+  autoscaling_group_name = aws_autoscaling_group.green.name
+  policy_type            = "SimpleScaling"
+}
+
+# Target Tracking Policy for Green Environment
+resource "aws_autoscaling_policy" "green_target_tracking" {
+  name                   = "${local.green_name_prefix}-target-tracking"
+  autoscaling_group_name = aws_autoscaling_group.green.name
+  policy_type            = "TargetTrackingScaling"
+
+  target_tracking_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ASGAverageCPUUtilization"
+    }
+    target_value = 50.0
+  }
 }
 
 # CloudWatch Alarms for Green Environment
@@ -329,9 +414,28 @@ resource "aws_cloudwatch_metric_alarm" "green_high_cpu" {
   namespace           = "AWS/EC2"
   period              = "300"
   statistic           = "Average"
-  threshold           = "80"
+  threshold           = "75"
   alarm_description   = "This metric monitors green environment CPU utilization"
-  alarm_actions       = [aws_sns_topic.deployment_notifications.arn]
+  alarm_actions       = [aws_autoscaling_policy.green_scale_up.arn]
+
+  dimensions = {
+    AutoScalingGroupName = aws_autoscaling_group.green.name
+  }
+
+  tags = local.common_tags
+}
+
+resource "aws_cloudwatch_metric_alarm" "green_low_cpu" {
+  alarm_name          = "${local.green_name_prefix}-low-cpu"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  period              = "300"
+  statistic           = "Average"
+  threshold           = "25"
+  alarm_description   = "This metric monitors green environment low CPU utilization"
+  alarm_actions       = [aws_autoscaling_policy.green_scale_down.arn]
 
   dimensions = {
     AutoScalingGroupName = aws_autoscaling_group.green.name

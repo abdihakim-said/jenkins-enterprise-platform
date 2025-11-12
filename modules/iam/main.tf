@@ -224,7 +224,13 @@ resource "aws_iam_policy" "jenkins" {
           "elasticloadbalancing:DescribeTargetGroups",
           "elasticloadbalancing:DescribeLoadBalancerAttributes",
           "elasticloadbalancing:DescribeTargetGroupAttributes",
-          "elasticloadbalancing:DescribeTags"
+          "elasticloadbalancing:DescribeListeners",
+          "elasticloadbalancing:DescribeTags",
+          "autoscaling:DescribePolicies",
+          "ssm:DescribeParameters",
+          "kms:GetKeyRotationStatus",
+          "kms:DescribeKey",
+          "ec2:DescribeNatGateways"
         ]
         Resource = "*"
       },

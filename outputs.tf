@@ -66,6 +66,19 @@ output "jenkins_security_group_id" {
   value       = module.security_groups.jenkins_security_group_id
 }
 
+output "s3_buckets" {
+  description = "All S3 buckets used by the platform"
+  value = {
+    alb_logs     = module.alb.s3_bucket_name
+    cloudtrail   = module.security_automation.cloudtrail_bucket_name
+    cost_reports = module.cost_optimization.cost_reports_bucket
+    # Legacy buckets (managed outside current Terraform)
+    legacy_cloudtrail = "dev-jenkins-enterprise-platform-cloudtrail-f412585e"
+    legacy_config     = "dev-jenkins-enterprise-platform-config-51130299"
+    legacy_backup     = "dev-jenkins-enterprise-platform-backup-5822412a"
+  }
+}
+
 output "alb_security_group_id" {
   description = "ID of the ALB security group"
   value       = module.security_groups.alb_security_group_id

@@ -25,7 +25,8 @@ resource "aws_security_group" "bastion" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["95.214.230.251/32"]
+    description = "SSH from admin IP only"
   }
 
   egress {
@@ -41,6 +42,16 @@ resource "aws_security_group_rule" "bastion_to_jenkins" {
   type                     = "ingress"
   from_port                = 8080
   to_port                  = 8080
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.bastion.id
+  security_group_id        = module.security_groups.jenkins_security_group_id
+}
+
+# Allow bastion SSH to Jenkins instances
+resource "aws_security_group_rule" "bastion_ssh_to_jenkins" {
+  type                     = "ingress"
+  from_port                = 22
+  to_port                  = 22
   protocol                 = "tcp"
   source_security_group_id = aws_security_group.bastion.id
   security_group_id        = module.security_groups.jenkins_security_group_id

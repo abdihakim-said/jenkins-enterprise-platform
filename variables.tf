@@ -2,6 +2,12 @@
 # Multi-Environment Support
 
 # General Configuration
+variable "alert_email" {
+  description = "Email address for alerts and notifications"
+  type        = string
+  default     = "said.devops123@gmail.com"
+}
+
 variable "aws_region" {
   description = "AWS region for resources"
   type        = string
@@ -21,12 +27,6 @@ variable "environment" {
     condition     = contains(["dev", "staging", "production"], var.environment)
     error_message = "Environment must be dev, staging, or production."
   }
-}
-
-variable "alert_email" {
-  description = "Email address for observability alerts"
-  type        = string
-  default     = "devops@company.com"
 }
 
 variable "owner" {

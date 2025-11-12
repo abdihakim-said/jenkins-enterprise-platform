@@ -23,7 +23,7 @@ Luuul Solutions required a scalable, secure CI/CD platform supporting their grow
 - Cost-optimized infrastructure (~$90/month savings)
 
 ### Solution Delivered
-Production-ready Jenkins deployment on AWS using modular Terraform architecture with Infrastructure as Code (IaC) principles, featuring 11 specialized modules (10 deployed + 1 pipeline) and enterprise-grade automation.
+Production-ready Jenkins deployment on AWS using modular Terraform architecture with Infrastructure as Code (IaC) principles, featuring 12 specialized modules and enterprise-grade automation.
 
 ## 🏗️ Architecture Overview
 
@@ -87,7 +87,7 @@ This project deploys a highly available, scalable Jenkins environment with:
 
 ```
 jenkins-enterprise-platform/
-├── modules/                    # 10 Modular Terraform components
+├── modules/                    # 11 Modular Terraform components
 │   ├── vpc/                   # VPC, subnets, NAT gateway, flow logs
 │   ├── security_groups/       # Security group configurations
 │   ├── iam/                   # IAM roles, policies, KMS encryption
@@ -98,6 +98,8 @@ jenkins-enterprise-platform/
 │   ├── blue-green-deployment/ # Zero-downtime deployment strategy
 │   ├── s3-backup/             # Automated backup with versioning
 │   ├── cost-optimized-observability/ # Smart monitoring (~$105/month savings)
+│   ├── cost-optimization/     # Automated scaling, budgets, cost analytics
+│   ├── security-automation/   # GuardDuty, Security Hub, Config, CloudTrail, incident response
 │   └── inspector/             # Security monitoring and compliance
 ├── environments/              # Environment-specific configurations
 │   ├── dev/                   # Development environment
@@ -127,7 +129,7 @@ jenkins-enterprise-platform/
 ## 🛠️ Technology Stack
 
 **Cloud Platform**: AWS (VPC, EC2, EFS, ALB, Auto Scaling, S3, CloudWatch)  
-**Infrastructure as Code**: Terraform (10 custom modules)  
+**Infrastructure as Code**: Terraform (12 custom modules)  
 **CI/CD Platform**: Jenkins with automated pipelines  
 **Image Building**: HashiCorp Packer with security hardening  
 **Security Tools**: TFSec, Trivy, Checkov, AWS Inspector, GitLeaks  
@@ -254,6 +256,58 @@ vs Enterprise ECS Stack: ~$120/month
 - Auto Scaling triggers for scale up/down
 - Security scan failures
 - Backup job failures
+
+## 🛡️ Security Automation
+
+### ✅ **Automated Threat Detection**
+- **GuardDuty**: Real-time threat detection with malware protection and S3 monitoring
+- **Security Hub**: Centralized security findings with compliance standards
+- **EventBridge Integration**: Automated security event routing and processing
+
+### ✅ **Compliance Monitoring**
+- **AWS Config Rules**: 6 active compliance rules
+  - Encrypted volumes validation
+  - S3 bucket public access prevention
+  - IAM password policy enforcement (14+ chars, complexity)
+  - MFA requirement for root account
+  - SSH access restrictions
+  - CloudTrail encryption validation
+- **Real-time Compliance**: Automated alerts on policy violations
+
+### ✅ **Automated Incident Response**
+- **Lambda Security Responder**: Processes high-severity findings (7.0+ severity)
+- **SNS Notifications**: Email alerts to `said.devops123@gmail.com`
+- **Auto-scaling Response**: Can isolate compromised instances
+- **CloudTrail Integration**: Complete audit trail for security events
+
+### ✅ **Security Metrics**
+- **GuardDuty Findings**: 1 low-severity finding (expected root usage)
+- **Config Compliance**: 6/6 rules active and monitoring
+- **Response Time**: <300ms for automated incident processing
+- **Coverage**: 100% infrastructure monitored 24/7
+
+## 💾 Storage & Backup Infrastructure
+
+### **S3 Buckets (Managed)**
+- **ALB Access Logs**: `dev-jenkins-alb-logs-*` - Load balancer request logging
+- **CloudTrail Audit Logs**: 
+  - `dev-jenkins-cloudtrail-*` (Current Terraform managed)
+  - `dev-jenkins-enterprise-platform-cloudtrail-*` (Legacy, actively used)
+- **AWS Config Compliance**: `dev-jenkins-enterprise-platform-config-*` - Configuration compliance data
+- **Cost Reports**: `dev-jenkins-cost-optimization-*` - Automated cost analysis
+- **Jenkins Backups**: `dev-jenkins-enterprise-platform-backup-*` - EFS backup storage
+
+### **EFS File System**
+- **Shared Storage**: Jenkins home and workspace data
+- **Multi-AZ**: Mount targets in all availability zones
+- **Backup Policy**: Daily automated backups (30-day retention)
+- **Intelligent Tiering**: Automatic cost optimization
+
+### **Backup Strategy**
+- **EFS Backups**: Daily automated backups via AWS Backup
+- **S3 Lifecycle**: 30-day retention with automated archival
+- **Cross-Region**: AMI replication for disaster recovery
+- **Versioning**: Enabled on all critical S3 buckets
 
 ## 🔒 Security & Compliance Features
 
@@ -664,9 +718,10 @@ This enterprise setup supports **50+ developers** across **4 teams** with **99.9
 ## 🏆 Project Achievements
 
 ### Technical Excellence
-- **10 Terraform Modules**: Highly modular, reusable infrastructure components
+- **12 Terraform Modules**: Highly modular, reusable infrastructure components
 - **Zero-Downtime Deployments**: 100% uptime during deployments achieved
-- **Security Automation**: 3 security tools integrated in CI/CD pipeline
+- **Security Automation**: GuardDuty, Security Hub, Config, and automated incident response
+- **Enterprise Security**: 6 Config rules, CloudTrail logging, and real-time threat detection
 
 ### Cost Optimization Excellence
 - **67% Cost Reduction**: $345/month savings through intelligent automation

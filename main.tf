@@ -178,6 +178,18 @@ module "cost_optimization" {
   ]
 }
 
+# Security Automation Module
+# GuardDuty, Security Hub, Config, CloudTrail, and automated incident response
+module "security_automation" {
+  source = "./modules/security-automation"
+
+  environment  = var.environment
+  project_name = var.project_name
+  alert_email  = var.alert_email
+
+  common_tags = local.common_tags
+}
+
 # Local values
 locals {
   common_tags = {
