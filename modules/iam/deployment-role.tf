@@ -170,6 +170,37 @@ resource "aws_iam_role_policy" "deployment" {
           "ec2:DeleteTags"
         ]
         Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          # S3 Backend for Terraform State
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject",
+          "s3:ListBucket",
+          "s3:GetBucketVersioning",
+          "s3:GetBucketLocation",
+          "s3:HeadObject",
+          "s3:GetObjectVersion"
+        ]
+        Resource = [
+          "arn:aws:s3:::jenkins-tf-state-*",
+          "arn:aws:s3:::jenkins-tf-state-*/*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          # DynamoDB for Terraform State Locking
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:DeleteItem",
+          "dynamodb:DescribeTable"
+        ]
+        Resource = [
+          "arn:aws:dynamodb:*:*:table/jenkins-terraform-locks"
+        ]
       }
     ]
   })
