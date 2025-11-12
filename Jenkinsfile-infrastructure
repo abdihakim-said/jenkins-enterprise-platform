@@ -122,8 +122,8 @@ pipeline {
                     sh '''
                         echo "🏗️ Planning infrastructure for ${ENVIRONMENT}..."
                         
-                        # Initialize Terraform with environment-specific backend
-                        terraform init -backend-config="key=jenkins-enterprise-platform/${ENVIRONMENT}/terraform.tfstate"
+                        # Initialize Terraform with environment-specific backend (reconfigure to handle changes)
+                        terraform init -backend-config="key=jenkins-enterprise-platform/${ENVIRONMENT}/terraform.tfstate" -reconfigure
                         terraform validate
                         
                         # Plan deployment with environment-specific variables
