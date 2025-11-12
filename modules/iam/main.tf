@@ -305,6 +305,16 @@ resource "aws_iam_policy" "jenkins" {
         ]
         Resource = "*"
       },
+      {
+        Effect = "Allow"
+        Action = [
+          # Allow assuming deployment role for infrastructure operations
+          "sts:AssumeRole"
+        ]
+        Resource = [
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/*deployment-role"
+        ]
+      }
     ]
   })
 

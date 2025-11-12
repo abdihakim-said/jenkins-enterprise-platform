@@ -122,6 +122,16 @@ pipeline {
                     sh '''
                         echo "🏗️ Planning infrastructure for ${ENVIRONMENT}..."
                         
+                        # Assume deployment role for infrastructure operations
+                        DEPLOYMENT_ROLE_ARN="arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):role/${ENVIRONMENT}-jenkins-enterprise-platform-deployment-role"
+                        
+                        # Get temporary credentials for deployment role
+                        TEMP_CREDS=$(aws sts assume-role --role-arn $DEPLOYMENT_ROLE_ARN --role-session-name "jenkins-deployment-${BUILD_NUMBER}")
+                        
+                        export AWS_ACCESS_KEY_ID=$(echo $TEMP_CREDS | jq -r '.Credentials.AccessKeyId')
+                        export AWS_SECRET_ACCESS_KEY=$(echo $TEMP_CREDS | jq -r '.Credentials.SecretAccessKey')
+                        export AWS_SESSION_TOKEN=$(echo $TEMP_CREDS | jq -r '.Credentials.SessionToken')
+                        
                         # Initialize Terraform with environment-specific backend (reconfigure to handle changes)
                         terraform init -backend-config="key=jenkins-enterprise-platform/${ENVIRONMENT}/terraform.tfstate" -reconfigure
                         terraform validate
@@ -179,6 +189,16 @@ pipeline {
                 script {
                     sh '''
                         echo "🚀 Deploying infrastructure to ${ENVIRONMENT}..."
+                        
+                        # Assume deployment role for infrastructure operations
+                        DEPLOYMENT_ROLE_ARN="arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):role/${ENVIRONMENT}-jenkins-enterprise-platform-deployment-role"
+                        
+                        # Get temporary credentials for deployment role
+                        TEMP_CREDS=$(aws sts assume-role --role-arn $DEPLOYMENT_ROLE_ARN --role-session-name "jenkins-deployment-${BUILD_NUMBER}")
+                        
+                        export AWS_ACCESS_KEY_ID=$(echo $TEMP_CREDS | jq -r '.Credentials.AccessKeyId')
+                        export AWS_SECRET_ACCESS_KEY=$(echo $TEMP_CREDS | jq -r '.Credentials.SecretAccessKey')
+                        export AWS_SESSION_TOKEN=$(echo $TEMP_CREDS | jq -r '.Credentials.SessionToken')
                         
                         # Apply the plan from root directory
                         terraform apply -auto-approve ${ENVIRONMENT}-deploy.tfplan
