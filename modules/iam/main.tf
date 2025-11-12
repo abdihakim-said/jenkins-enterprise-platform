@@ -47,7 +47,8 @@ resource "aws_iam_policy" "jenkins" {
           "ssm:GetParametersByPath",
           "ssm:PutParameter",
           "ssm:DeleteParameter",
-          "ssm:DescribeParameters"
+          "ssm:DescribeParameters",
+          "ssm:ListTagsForResource"
         ]
         Resource = [
           "arn:aws:ssm:*:${data.aws_caller_identity.current.account_id}:parameter/jenkins/*",
@@ -66,7 +67,8 @@ resource "aws_iam_policy" "jenkins" {
           "logs:CreateLogStream",
           "logs:PutLogEvents",
           "logs:DescribeLogStreams",
-          "logs:DescribeLogGroups"
+          "logs:DescribeLogGroups",
+          "logs:ListTagsForResource"
         ]
         Resource = [
           "arn:aws:logs:*:${data.aws_caller_identity.current.account_id}:log-group:/jenkins/*",
@@ -233,6 +235,7 @@ resource "aws_iam_policy" "jenkins" {
           "kms:GetKeyRotationStatus",
           "kms:DescribeKey",
           "kms:ListResourceTags",
+          "kms:ListAliases",
           "ec2:DescribeNatGateways"
         ]
         Resource = "*"
