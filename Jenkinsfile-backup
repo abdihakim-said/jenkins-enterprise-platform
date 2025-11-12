@@ -1,0 +1,379 @@
+#!/usr/bin/env groovy
+/**
+ * Jenkins Enterprise Platform - Automated Backup Pipeline
+ * 
+ * Purpose: Automated backup orchestration with scheduling and monitoring
+ * Supports: Full, incremental, and configuration backups
+ * Features: Multi-environment, notifications, and disaster recovery
+ */
+
+pipeline {
+    agent {
+        label 'jenkins-master'
+    }
+    
+    parameters {
+        choice(
+            name: 'BACKUP_TYPE',
+            choices: ['full', 'incremental', 'config'],
+            description: 'Type of backup to perform'
+        )
+        choice(
+            name: 'ENVIRONMENT',
+            choices: ['dev', 'staging', 'production'],
+            description: 'Environment to backup'
+        )
+        booleanParam(
+            name: 'FORCE_BACKUP',
+            defaultValue: false,
+            description: 'Force backup even if recent backup exists'
+        )
+        booleanParam(
+            name: 'SKIP_CLEANUP',
+            defaultValue: false,
+            description: 'Skip cleanup of old backups'
+        )
+    }
+    
+    environment {
+        AWS_DEFAULT_REGION = 'us-east-1'
+        BACKUP_SCRIPT = '/opt/jenkins/scripts/backup/jenkins-backup.sh'
+        S3_BUCKET = "jenkins-enterprise-platform-backup-${params.ENVIRONMENT}"
+        SLACK_WEBHOOK = credentials('slack-webhook-url')
+        NOTIFICATION_EMAIL = 'said.devops123@gmail.com'
+        RETENTION_DAYS = '30'
+        COMPRESSION_LEVEL = '6'
+        ENCRYPTION_ENABLED = 'true'
+    }
+    
+    triggers {
+        // Daily full backup at 2 AM
+        cron(params.BACKUP_TYPE == 'full' ? 'H 2 * * *' : '')
+        // Incremental backup every 6 hours
+        cron(params.BACKUP_TYPE == 'incremental' ? 'H */6 * * *' : '')
+        // Configuration backup daily at 1 AM
+        cron(params.BACKUP_TYPE == 'config' ? 'H 1 * * *' : '')
+    }
+    
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '30'))
+        timeout(time: 2, unit: 'HOURS')
+        timestamps()
+        ansiColor('xterm')
+        skipDefaultCheckout()
+    }
+    
+    stages {
+        stage('Pre-Backup Validation') {
+            steps {
+                script {
+                    echo "🔍 Starting backup validation for ${params.ENVIRONMENT} environment"
+                    
+                    // Check if recent backup exists (unless forced)
+                    if (!params.FORCE_BACKUP) {
+                        def recentBackup = sh(
+                            script: """
+                                aws s3api list-objects-v2 \
+                                    --bucket ${env.S3_BUCKET} \
+                                    --prefix "backups/${params.BACKUP_TYPE}/" \
+                                    --query 'Contents[?LastModified>=`$(date -d "1 day ago" --iso-8601)`].Key' \
+                                    --output text
+                            """,
+                            returnStdout: true
+                        ).trim()
+                        
+                        if (recentBackup && recentBackup != 'None') {
+                            echo "⚠️  Recent ${params.BACKUP_TYPE} backup found: ${recentBackup}"
+                            echo "Use FORCE_BACKUP=true to override"
+                            currentBuild.result = 'ABORTED'
+                            return
+                        }
+                    }
+                    
+                    // Validate backup script exists
+                    sh """
+                        if [ ! -f "${env.BACKUP_SCRIPT}" ]; then
+                            echo "❌ Backup script not found: ${env.BACKUP_SCRIPT}"
+                            exit 1
+                        fi
+                        chmod +x "${env.BACKUP_SCRIPT}"
+                    """
+                    
+                    // Check AWS credentials and S3 access
+                    sh """
+                        echo "🔐 Validating AWS credentials..."
+                        aws sts get-caller-identity
+                        
+                        echo "📦 Validating S3 bucket access..."
+                        aws s3 ls s3://${env.S3_BUCKET}/ || {
+                            echo "Creating S3 bucket: ${env.S3_BUCKET}"
+                            aws s3 mb s3://${env.S3_BUCKET}
+                        }
+                    """
+                    
+                    // Check disk space
+                    sh """
+                        echo "💾 Checking disk space..."
+                        df -h /var/lib/jenkins
+                        df -h /tmp
+                        
+                        # Check if we have at least 10GB free
+                        available=\$(df /tmp | awk 'NR==2 {print \$4}')
+                        if [ \$available -lt 10485760 ]; then
+                            echo "❌ Insufficient disk space. Need at least 10GB free"
+                            exit 1
+                        fi
+                    """
+                }
+            }
+        }
+        
+        stage('Execute Backup') {
+            steps {
+                script {
+                    echo "🚀 Starting ${params.BACKUP_TYPE} backup for ${params.ENVIRONMENT}"
+                    
+                    // Set environment variables for backup script
+                    withEnv([
+                        "BACKUP_TYPE=${params.BACKUP_TYPE}",
+                        "ENVIRONMENT=${params.ENVIRONMENT}",
+                        "S3_BUCKET=${env.S3_BUCKET}",
+                        "AWS_REGION=${env.AWS_DEFAULT_REGION}",
+                        "RETENTION_DAYS=${env.RETENTION_DAYS}",
+                        "COMPRESSION_LEVEL=${env.COMPRESSION_LEVEL}",
+                        "ENCRYPTION_ENABLED=${env.ENCRYPTION_ENABLED}",
+                        "NOTIFICATION_EMAIL=${env.NOTIFICATION_EMAIL}",
+                        "SLACK_WEBHOOK=${env.SLACK_WEBHOOK}"
+                    ]) {
+                        // Execute backup with timeout
+                        timeout(time: 90, unit: 'MINUTES') {
+                            sh """
+                                echo "📋 Backup Configuration:"
+                                echo "  Type: ${params.BACKUP_TYPE}"
+                                echo "  Environment: ${params.ENVIRONMENT}"
+                                echo "  S3 Bucket: ${env.S3_BUCKET}"
+                                echo "  Retention: ${env.RETENTION_DAYS} days"
+                                echo "  Compression: Level ${env.COMPRESSION_LEVEL}"
+                                echo "  Encryption: ${env.ENCRYPTION_ENABLED}"
+                                echo ""
+                                
+                                # Run backup script
+                                ${env.BACKUP_SCRIPT} ${params.BACKUP_TYPE}
+                            """
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Backup Verification') {
+            steps {
+                script {
+                    echo "✅ Verifying backup completion..."
+                    
+                    // Get latest backup info
+                    def backupInfo = sh(
+                        script: """
+                            aws s3api list-objects-v2 \
+                                --bucket ${env.S3_BUCKET} \
+                                --prefix "backups/${params.BACKUP_TYPE}/" \
+                                --query 'sort_by(Contents, &LastModified)[-1].[Key,Size,LastModified]' \
+                                --output text
+                        """,
+                        returnStdout: true
+                    ).trim().split('\t')
+                    
+                    if (backupInfo.size() >= 3) {
+                        def backupKey = backupInfo[0]
+                        def backupSize = backupInfo[1] as Long
+                        def backupDate = backupInfo[2]
+                        
+                        echo "📊 Backup Details:"
+                        echo "  File: ${backupKey}"
+                        echo "  Size: ${(backupSize / 1024 / 1024).round(2)} MB"
+                        echo "  Date: ${backupDate}"
+                        
+                        // Verify backup integrity (basic check)
+                        sh """
+                            echo "🔍 Verifying backup integrity..."
+                            aws s3api head-object \
+                                --bucket ${env.S3_BUCKET} \
+                                --key "${backupKey}" \
+                                --query 'ContentLength' \
+                                --output text
+                        """
+                        
+                        // Store backup info for reporting
+                        env.BACKUP_KEY = backupKey
+                        env.BACKUP_SIZE = "${(backupSize / 1024 / 1024).round(2)} MB"
+                        env.BACKUP_DATE = backupDate
+                        
+                    } else {
+                        error "❌ Backup verification failed - no backup found"
+                    }
+                }
+            }
+        }
+        
+        stage('Cleanup Old Backups') {
+            when {
+                not { params.SKIP_CLEANUP }
+            }
+            steps {
+                script {
+                    echo "🧹 Cleaning up old backups (retention: ${env.RETENTION_DAYS} days)..."
+                    
+                    sh """
+                        cutoff_date=\$(date -d "${env.RETENTION_DAYS} days ago" +%Y-%m-%d)
+                        echo "Deleting backups older than: \$cutoff_date"
+                        
+                        aws s3api list-objects-v2 \
+                            --bucket ${env.S3_BUCKET} \
+                            --prefix "backups/${params.BACKUP_TYPE}/" \
+                            --query "Contents[?LastModified<='\$cutoff_date'].Key" \
+                            --output text | while read -r key; do
+                            if [ -n "\$key" ] && [ "\$key" != "None" ]; then
+                                echo "Deleting: \$key"
+                                aws s3 rm "s3://${env.S3_BUCKET}/\$key"
+                            fi
+                        done
+                    """
+                }
+            }
+        }
+        
+        stage('Generate Backup Report') {
+            steps {
+                script {
+                    echo "📊 Generating backup report..."
+                    
+                    // Create backup report
+                    def reportContent = """
+                    {
+                        "backup_summary": {
+                            "type": "${params.BACKUP_TYPE}",
+                            "environment": "${params.ENVIRONMENT}",
+                            "status": "SUCCESS",
+                            "timestamp": "${new Date().format('yyyy-MM-dd HH:mm:ss')}",
+                            "build_number": "${env.BUILD_NUMBER}",
+                            "build_url": "${env.BUILD_URL}"
+                        },
+                        "backup_details": {
+                            "s3_location": "s3://${env.S3_BUCKET}/${env.BACKUP_KEY}",
+                            "size": "${env.BACKUP_SIZE}",
+                            "date": "${env.BACKUP_DATE}",
+                            "retention_days": ${env.RETENTION_DAYS}
+                        },
+                        "pipeline_info": {
+                            "duration": "${currentBuild.durationString}",
+                            "triggered_by": "${env.BUILD_CAUSE}",
+                            "jenkins_url": "${env.JENKINS_URL}",
+                            "node_name": "${env.NODE_NAME}"
+                        }
+                    }
+                    """
+                    
+                    writeFile file: 'backup-report.json', text: reportContent
+                    
+                    // Archive the report
+                    archiveArtifacts artifacts: 'backup-report.json', fingerprint: true
+                    
+                    // Upload report to S3
+                    sh """
+                        aws s3 cp backup-report.json \
+                            s3://${env.S3_BUCKET}/reports/backup-report-${env.BUILD_NUMBER}-${params.BACKUP_TYPE}.json
+                    """
+                }
+            }
+        }
+    }
+    
+    post {
+        success {
+            script {
+                echo "✅ Backup completed successfully!"
+                
+                // Send success notification
+                def message = """
+                🎉 *Jenkins Backup Successful*
+                
+                *Environment:* ${params.ENVIRONMENT}
+                *Type:* ${params.BACKUP_TYPE}
+                *Size:* ${env.BACKUP_SIZE}
+                *Location:* s3://${env.S3_BUCKET}/${env.BACKUP_KEY}
+                *Duration:* ${currentBuild.durationString}
+                *Build:* ${env.BUILD_URL}
+                """.stripIndent()
+                
+                // Slack notification
+                if (env.SLACK_WEBHOOK) {
+                    sh """
+                        curl -X POST -H 'Content-type: application/json' \
+                            --data '{"text":"${message}","channel":"#devops","username":"Jenkins Backup"}' \
+                            ${env.SLACK_WEBHOOK}
+                    """
+                }
+                
+                // Email notification for production
+                if (params.ENVIRONMENT == 'production') {
+                    emailext (
+                        subject: "✅ Jenkins Backup Success - ${params.ENVIRONMENT}",
+                        body: message,
+                        to: env.NOTIFICATION_EMAIL,
+                        mimeType: 'text/plain'
+                    )
+                }
+            }
+        }
+        
+        failure {
+            script {
+                echo "❌ Backup failed!"
+                
+                def message = """
+                🚨 *Jenkins Backup Failed*
+                
+                *Environment:* ${params.ENVIRONMENT}
+                *Type:* ${params.BACKUP_TYPE}
+                *Error:* Build failed
+                *Duration:* ${currentBuild.durationString}
+                *Build:* ${env.BUILD_URL}
+                *Logs:* ${env.BUILD_URL}console
+                """.stripIndent()
+                
+                // Always send failure notifications
+                if (env.SLACK_WEBHOOK) {
+                    sh """
+                        curl -X POST -H 'Content-type: application/json' \
+                            --data '{"text":"${message}","channel":"#alerts","username":"Jenkins Backup"}' \
+                            ${env.SLACK_WEBHOOK}
+                    """
+                }
+                
+                emailext (
+                    subject: "❌ Jenkins Backup Failed - ${params.ENVIRONMENT}",
+                    body: message,
+                    to: env.NOTIFICATION_EMAIL,
+                    mimeType: 'text/plain'
+                )
+            }
+        }
+        
+        always {
+            script {
+                // Cleanup workspace
+                cleanWs()
+                
+                // Log backup metrics
+                echo """
+                📈 Backup Metrics:
+                  Environment: ${params.ENVIRONMENT}
+                  Type: ${params.BACKUP_TYPE}
+                  Status: ${currentBuild.result ?: 'SUCCESS'}
+                  Duration: ${currentBuild.durationString}
+                  Build: #${env.BUILD_NUMBER}
+                """
+            }
+        }
+    }
+}
