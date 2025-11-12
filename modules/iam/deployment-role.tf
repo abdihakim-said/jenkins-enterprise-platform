@@ -49,6 +49,7 @@ resource "aws_iam_role_policy" "deployment" {
           "ec2:DescribeVpcEndpoints",
           "ec2:DescribeFlowLogs",
           "ec2:DescribeAddresses",
+          "ec2:DescribeVpcAttribute",
           
           # VPC and Networking
           "ec2:CreateVpc",
@@ -136,6 +137,8 @@ resource "aws_iam_role_policy" "deployment" {
           "events:DeleteRule",
           "events:PutTargets",
           "events:RemoveTargets",
+          "events:DescribeRule",
+          "events:ListTargetsByRule",
           "events:TagResource",
           "events:UntagResource",
           
