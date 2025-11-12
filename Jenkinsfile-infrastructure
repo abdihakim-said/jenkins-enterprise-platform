@@ -122,16 +122,15 @@ pipeline {
                     sh '''
                         echo "🏗️ Planning infrastructure for ${ENVIRONMENT}..."
                         
-                        # Initialize and plan from environment directory
-                        cd environments/${ENVIRONMENT}
-                        terraform init
+                        # Initialize Terraform with environment-specific backend
+                        terraform init -backend-config="key=jenkins-enterprise-platform/${ENVIRONMENT}/terraform.tfstate"
                         terraform validate
                         
                         # Plan deployment with environment-specific variables
-                        terraform plan -var-file="terraform.tfvars" -out=${ENVIRONMENT}-deploy.tfplan
+                        terraform plan -var-file="environments/${ENVIRONMENT}/terraform.tfvars" -out=${ENVIRONMENT}-deploy.tfplan
                         
                         # Generate plan analysis
-                        terraform show -json ${ENVIRONMENT}-deploy.tfplan > ../../${ENVIRONMENT}-plan.json
+                        terraform show -json ${ENVIRONMENT}-deploy.tfplan > ${ENVIRONMENT}-plan.json
                         
                         echo "✅ Terraform plan completed"
                     '''
@@ -180,18 +179,17 @@ pipeline {
                 script {
                     sh '''
                         echo "🚀 Deploying infrastructure to ${ENVIRONMENT}..."
-                        cd environments/${ENVIRONMENT}
                         
-                        # Apply the plan (plan file is in same directory now)
+                        # Apply the plan from root directory
                         terraform apply -auto-approve ${ENVIRONMENT}-deploy.tfplan
                         
                         # Generate outputs
-                        terraform output -json > ../../${ENVIRONMENT}-outputs.json
+                        terraform output -json > ${ENVIRONMENT}-outputs.json
                         
                         # Verify outputs file was created
-                        if [ -f "../../${ENVIRONMENT}-outputs.json" ]; then
+                        if [ -f "${ENVIRONMENT}-outputs.json" ]; then
                             echo "✅ Outputs file created: ${ENVIRONMENT}-outputs.json"
-                            ls -la ../../${ENVIRONMENT}-outputs.json
+                            ls -la ${ENVIRONMENT}-outputs.json
                         else
                             echo "❌ Failed to create outputs file"
                             exit 1
