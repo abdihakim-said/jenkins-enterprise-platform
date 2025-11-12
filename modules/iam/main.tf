@@ -160,6 +160,7 @@ resource "aws_iam_policy" "jenkins" {
           "s3:DeleteObject",
           "s3:ListBucket",
           "s3:GetBucketLocation",
+          "s3:GetAccelerateConfiguration",
           "s3:PutBucketPolicy",
           "s3:DeleteBucketPolicy",
           "s3:PutBucketVersioning",
