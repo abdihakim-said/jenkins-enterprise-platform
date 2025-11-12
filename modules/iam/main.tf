@@ -195,6 +195,7 @@ resource "aws_iam_policy" "jenkins" {
           "s3:GetEncryptionConfiguration",
           "s3:GetLifecycleConfiguration",
           "budgets:ViewBudget",
+          "budgets:ListTagsForResource",
           "autoscaling:DescribeScheduledActions",
           "ec2:DescribeFlowLogs",
           "iam:GetRole",
