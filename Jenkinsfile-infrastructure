@@ -179,13 +179,22 @@ pipeline {
                 script {
                     sh '''
                         echo "🚀 Deploying infrastructure to ${ENVIRONMENT}..."
-                        # cd environments/${ENVIRONMENT}
+                        cd environments/${ENVIRONMENT}
                         
                         # Apply the plan
                         terraform apply -auto-approve ${ENVIRONMENT}-deploy.tfplan
                         
                         # Generate outputs
                         terraform output -json > ../../${ENVIRONMENT}-outputs.json
+                        
+                        # Verify outputs file was created
+                        if [ -f "../../${ENVIRONMENT}-outputs.json" ]; then
+                            echo "✅ Outputs file created: ${ENVIRONMENT}-outputs.json"
+                            ls -la ../../${ENVIRONMENT}-outputs.json
+                        else
+                            echo "❌ Failed to create outputs file"
+                            exit 1
+                        fi
                         
                         echo "✅ Infrastructure deployed successfully"
                     '''
