@@ -89,7 +89,8 @@ resource "aws_iam_policy" "jenkins" {
           "ec2:DescribeVpcs",
           "ec2:DescribeTags",
           "ec2:DescribeInstanceTypeOfferings",
-          "ec2:DescribeSnapshots"
+          "ec2:DescribeSnapshots",
+          "ec2:DescribeLaunchTemplates"
         ]
         Resource = "*"
       },
