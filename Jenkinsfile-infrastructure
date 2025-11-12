@@ -181,8 +181,8 @@ pipeline {
                         echo "🚀 Deploying infrastructure to ${ENVIRONMENT}..."
                         cd environments/${ENVIRONMENT}
                         
-                        # Apply the plan
-                        terraform apply -auto-approve ${ENVIRONMENT}-deploy.tfplan
+                        # Apply the plan (plan file is in root directory)
+                        terraform apply -auto-approve ../../${ENVIRONMENT}-deploy.tfplan
                         
                         # Generate outputs
                         terraform output -json > ../../${ENVIRONMENT}-outputs.json
