@@ -40,6 +40,7 @@ resource "aws_iam_role_policy" "deployment" {
           "ec2:DescribeVpcs",
           "ec2:DescribeSubnets",
           "ec2:DescribeSecurityGroups",
+          "ec2:DescribeSecurityGroupRules",
           "ec2:DescribeInstances",
           "ec2:DescribeInstanceTypes",
           "ec2:DescribeKeyPairs",
@@ -49,7 +50,10 @@ resource "aws_iam_role_policy" "deployment" {
           "ec2:DescribeVpcEndpoints",
           "ec2:DescribeFlowLogs",
           "ec2:DescribeAddresses",
+          "ec2:DescribeAddressesAttribute",
           "ec2:DescribeVpcAttribute",
+          "ec2:DescribeTags",
+          "ec2:DescribePrefixLists",
           
           # VPC and Networking
           "ec2:CreateVpc",
@@ -84,6 +88,8 @@ resource "aws_iam_role_policy" "deployment" {
           "ec2:RevokeSecurityGroupEgress",
           
           # IAM for service roles
+          "iam:GetRole",
+          "iam:GetPolicy",
           "iam:CreateRole",
           "iam:DeleteRole",
           "iam:CreatePolicy",
@@ -97,8 +103,14 @@ resource "aws_iam_role_policy" "deployment" {
           "iam:AddRoleToInstanceProfile",
           "iam:RemoveRoleFromInstanceProfile",
           "iam:PassRole",
+          "iam:TagRole",
+          "iam:TagPolicy",
           
           # S3 Buckets
+          "s3:GetBucketPolicy",
+          "s3:GetBucketVersioning",
+          "s3:GetBucketPublicAccessBlock",
+          "s3:GetEncryptionConfiguration",
           "s3:CreateBucket",
           "s3:DeleteBucket",
           "s3:PutBucketPolicy",
@@ -109,6 +121,7 @@ resource "aws_iam_role_policy" "deployment" {
           "s3:PutBucketPublicAccessBlock",
           
           # Lambda Functions
+          "lambda:GetFunction",
           "lambda:CreateFunction",
           "lambda:DeleteFunction",
           "lambda:UpdateFunctionCode",
@@ -144,23 +157,32 @@ resource "aws_iam_role_policy" "deployment" {
           "events:UntagResource",
           
           # SNS
+          "sns:GetTopicAttributes",
           "sns:CreateTopic",
           "sns:DeleteTopic",
           "sns:Subscribe",
           "sns:Unsubscribe",
           "sns:SetTopicAttributes",
+          "sns:TagResource",
           
           # Security Services
+          "guardduty:GetDetector",
           "guardduty:CreateDetector",
           "guardduty:DeleteDetector",
           "guardduty:TagResource",
           "guardduty:UntagResource",
+          "securityhub:DescribeHub",
           "securityhub:EnableSecurityHub",
           "securityhub:DisableSecurityHub",
+          "config:DescribeConfigRules",
           "config:PutConfigRule",
           "config:DeleteConfigRule",
+          "config:TagResource",
           
           # EFS
+          "elasticfilesystem:DescribeFileSystems",
+          "elasticfilesystem:DescribeAccessPoints",
+          "elasticfilesystem:DescribeMountTargets",
           "elasticfilesystem:CreateFileSystem",
           "elasticfilesystem:DeleteFileSystem",
           "elasticfilesystem:CreateMountTarget",
@@ -171,6 +193,8 @@ resource "aws_iam_role_policy" "deployment" {
           "elasticfilesystem:UntagResource",
           
           # Auto Scaling
+          "autoscaling:DescribeAutoScalingGroups",
+          "autoscaling:DescribeLaunchTemplates",
           "autoscaling:CreateAutoScalingGroup",
           "autoscaling:DeleteAutoScalingGroup",
           "autoscaling:CreateLaunchTemplate",
@@ -179,6 +203,8 @@ resource "aws_iam_role_policy" "deployment" {
           "autoscaling:DeleteScheduledAction",
           
           # Load Balancer
+          "elasticloadbalancing:DescribeLoadBalancers",
+          "elasticloadbalancing:DescribeTargetGroups",
           "elasticloadbalancing:CreateLoadBalancer",
           "elasticloadbalancing:DeleteLoadBalancer",
           "elasticloadbalancing:CreateTargetGroup",
@@ -187,6 +213,7 @@ resource "aws_iam_role_policy" "deployment" {
           "elasticloadbalancing:DeleteListener",
           
           # SSM Parameters
+          "ssm:GetParameter",
           "ssm:PutParameter",
           "ssm:DeleteParameter",
           "ssm:AddTagsToResource",
