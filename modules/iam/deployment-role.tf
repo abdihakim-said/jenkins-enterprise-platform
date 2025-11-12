@@ -139,6 +139,7 @@ resource "aws_iam_role_policy" "deployment" {
           "events:RemoveTargets",
           "events:DescribeRule",
           "events:ListTargetsByRule",
+          "events:ListTagsForResource",
           "events:TagResource",
           "events:UntagResource",
           
