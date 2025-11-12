@@ -206,11 +206,18 @@ resource "aws_iam_policy" "jenkins" {
         Action = [
           # Comprehensive read permissions for Terraform state management
           "lambda:GetFunction",
-          "lambda:GetPolicy",
+          "lambda:GetPolicy", 
           "lambda:ListVersionsByFunction",
           "lambda:GetFunctionCodeSigningConfig",
+          "lambda:InvokeFunction",
+          "lambda:UpdateFunctionCode",
+          "lambda:UpdateFunctionConfiguration",
           "securityhub:DescribeHub",
+          "securityhub:GetFindings",
+          "securityhub:BatchImportFindings",
           "guardduty:GetDetector",
+          "guardduty:GetFindings",
+          "guardduty:ListFindings",
           "cloudtrail:DescribeTrails",
           "cloudtrail:GetTrailStatus",
           "cloudtrail:ListTags",
@@ -220,6 +227,15 @@ resource "aws_iam_policy" "jenkins" {
           "budgets:ViewBudget",
           "budgets:ListTagsForResource",
           "autoscaling:DescribeScheduledActions",
+          "autoscaling:DescribePolicies",
+          "autoscaling:DescribeAutoScalingGroups",
+          "autoscaling:DescribeAutoScalingInstances",
+          "autoscaling:SetInstanceHealth",
+          "autoscaling:UpdateAutoScalingGroup",
+          "autoscaling:SetDesiredCapacity",
+          "autoscaling:TerminateInstanceInAutoScalingGroup",
+          "autoscaling:PutScheduledUpdateGroupAction",
+          "autoscaling:DeleteScheduledAction",
           "ec2:DescribeFlowLogs",
           "iam:GetRole",
           "iam:GetPolicy",
@@ -229,17 +245,32 @@ resource "aws_iam_policy" "jenkins" {
           "iam:ListAttachedRolePolicies",
           "iam:GetInstanceProfile",
           "kms:GetKeyPolicy",
+          "kms:GetKeyRotationStatus",
+          "kms:DescribeKey",
+          "kms:ListResourceTags",
+          "kms:ListAliases",
           "cloudwatch:GetDashboard",
           "cloudwatch:DescribeAlarms",
           "cloudwatch:ListTagsForResource",
+          "cloudwatch:PutMetricAlarm",
+          "cloudwatch:DeleteAlarms",
+          "cloudwatch:PutDashboard",
+          "cloudwatch:DeleteDashboards",
           "events:DescribeRule",
           "events:ListTargetsByRule",
           "events:ListTagsForResource",
+          "events:PutRule",
+          "events:DeleteRule",
+          "events:PutTargets",
+          "events:RemoveTargets",
           "config:DescribeConfigRules",
           "config:ListTagsForResource",
           "sns:GetTopicAttributes",
           "sns:GetSubscriptionAttributes",
           "sns:ListTagsForResource",
+          "sns:Publish",
+          "sns:Subscribe",
+          "sns:Unsubscribe",
           "ec2:DescribeAvailabilityZones",
           "ec2:DescribeVpcAttribute",
           "ec2:DescribeInstanceTypes",
@@ -253,6 +284,7 @@ resource "aws_iam_policy" "jenkins" {
           "ec2:DescribeInstanceCreditSpecifications",
           "ec2:DescribeAddressesAttribute",
           "ec2:DescribeNetworkInterfaces",
+          "ec2:DescribeNatGateways",
           "elasticloadbalancing:DescribeLoadBalancers",
           "elasticloadbalancing:DescribeTargetGroups",
           "elasticloadbalancing:DescribeLoadBalancerAttributes",
@@ -260,52 +292,18 @@ resource "aws_iam_policy" "jenkins" {
           "elasticloadbalancing:DescribeListeners",
           "elasticloadbalancing:DescribeListenerAttributes",
           "elasticloadbalancing:DescribeTags",
-          "autoscaling:DescribePolicies",
+          "elasticloadbalancing:DescribeTargetHealth",
+          "elasticloadbalancing:RegisterTargets",
+          "elasticloadbalancing:DeregisterTargets",
+          "elasticloadbalancing:ModifyLoadBalancerAttributes",
+          "elasticloadbalancing:ModifyTargetGroupAttributes",
+          "elasticfilesystem:DescribeFileSystems",
+          "elasticfilesystem:DescribeMountTargets",
           "ssm:DescribeParameters",
-          "ssm:ListTagsForResource",
-          "kms:GetKeyRotationStatus",
-          "kms:DescribeKey",
-          "kms:ListResourceTags",
-          "kms:ListAliases",
-          "ec2:DescribeNatGateways"
+          "ssm:ListTagsForResource"
         ]
         Resource = "*"
       },
-      {
-        Effect = "Allow"
-        Action = [
-          # EFS permissions
-          "elasticfilesystem:DescribeFileSystems",
-          "elasticfilesystem:DescribeMountTargets"
-        ]
-        Resource = [
-          "arn:aws:elasticfilesystem:*:${data.aws_caller_identity.current.account_id}:file-system/*"
-        ]
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          # Auto Scaling permissions for self-healing
-          "autoscaling:DescribeAutoScalingGroups",
-          "autoscaling:DescribeAutoScalingInstances",
-          "autoscaling:SetInstanceHealth"
-        ]
-        Resource = [
-          "arn:aws:autoscaling:*:${data.aws_caller_identity.current.account_id}:autoScalingGroup:*:autoScalingGroupName/jenkins-*"
-        ]
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          # ELB permissions for health checks
-          "elasticloadbalancing:DescribeTargetHealth",
-          "elasticloadbalancing:DescribeTargetGroups"
-        ]
-        Resource = [
-          "arn:aws:elasticloadbalancing:*:${data.aws_caller_identity.current.account_id}:targetgroup/jenkins-*/*",
-          "arn:aws:elasticloadbalancing:*:${data.aws_caller_identity.current.account_id}:loadbalancer/app/jenkins-*/*"
-        ]
-      }
     ]
   })
 
