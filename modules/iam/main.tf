@@ -73,6 +73,7 @@ resource "aws_iam_policy" "jenkins" {
         Resource = [
           "arn:aws:logs:*:${data.aws_caller_identity.current.account_id}:log-group:/jenkins/*",
           "arn:aws:logs:*:${data.aws_caller_identity.current.account_id}:log-group:/aws/jenkins/*",
+          "arn:aws:logs:*:${data.aws_caller_identity.current.account_id}:log-group:/aws/vpc/*",
           "arn:aws:cloudwatch:*:${data.aws_caller_identity.current.account_id}:metric/*"
         ]
       },
@@ -90,7 +91,8 @@ resource "aws_iam_policy" "jenkins" {
           "ec2:DescribeTags",
           "ec2:DescribeInstanceTypeOfferings",
           "ec2:DescribeSnapshots",
-          "ec2:DescribeLaunchTemplates"
+          "ec2:DescribeLaunchTemplates",
+          "ec2:DescribeLaunchTemplateVersions"
         ]
         Resource = "*"
       },
