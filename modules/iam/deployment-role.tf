@@ -54,6 +54,7 @@ resource "aws_iam_role_policy" "deployment" {
           "ec2:DescribeVpcAttribute",
           "ec2:DescribeTags",
           "ec2:DescribePrefixLists",
+          "ec2:DescribeNetworkInterfaces",
           
           # VPC and Networking
           "ec2:CreateVpc",
@@ -90,6 +91,8 @@ resource "aws_iam_role_policy" "deployment" {
           # IAM for service roles
           "iam:GetRole",
           "iam:GetPolicy",
+          "iam:GetPolicyVersion",
+          "iam:ListRolePolicies",
           "iam:CreateRole",
           "iam:DeleteRole",
           "iam:CreatePolicy",
@@ -158,6 +161,7 @@ resource "aws_iam_role_policy" "deployment" {
           
           # SNS
           "sns:GetTopicAttributes",
+          "sns:ListTagsForResource",
           "sns:CreateTopic",
           "sns:DeleteTopic",
           "sns:Subscribe",
@@ -175,9 +179,18 @@ resource "aws_iam_role_policy" "deployment" {
           "securityhub:EnableSecurityHub",
           "securityhub:DisableSecurityHub",
           "config:DescribeConfigRules",
+          "config:ListTagsForResource",
           "config:PutConfigRule",
           "config:DeleteConfigRule",
           "config:TagResource",
+          
+          # CloudTrail
+          "cloudtrail:DescribeTrails",
+          "cloudtrail:CreateTrail",
+          "cloudtrail:DeleteTrail",
+          "cloudtrail:StartLogging",
+          "cloudtrail:StopLogging",
+          "cloudtrail:PutEventSelectors",
           
           # EFS
           "elasticfilesystem:DescribeFileSystems",
