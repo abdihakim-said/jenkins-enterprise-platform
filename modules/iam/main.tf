@@ -159,11 +159,20 @@ resource "aws_iam_policy" "jenkins" {
           "s3:PutObject",
           "s3:DeleteObject",
           "s3:ListBucket",
-          "s3:GetBucketLocation"
+          "s3:GetBucketLocation",
+          "s3:PutBucketPolicy",
+          "s3:DeleteBucketPolicy",
+          "s3:PutBucketVersioning",
+          "s3:PutEncryptionConfiguration",
+          "s3:DeleteBucketEncryption",
+          "s3:PutBucketPublicAccessBlock",
+          "s3:DeletePublicAccessBlock",
+          "s3:PutLifecycleConfiguration",
+          "s3:DeleteBucketLifecycle"
         ]
         Resource = [
-          "arn:aws:s3:::jenkins-*",
-          "arn:aws:s3:::jenkins-*/*"
+          "arn:aws:s3:::*jenkins*",
+          "arn:aws:s3:::*jenkins*/*"
         ]
       },
       {
@@ -176,6 +185,19 @@ resource "aws_iam_policy" "jenkins" {
         ]
         Resource = [
           "arn:aws:dynamodb:*:*:table/jenkins-terraform-locks"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          # IAM permissions for policy management
+          "iam:ListPolicyVersions",
+          "iam:CreatePolicyVersion",
+          "iam:DeletePolicyVersion",
+          "iam:SetDefaultPolicyVersion"
+        ]
+        Resource = [
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/*jenkins*"
         ]
       },
       {
