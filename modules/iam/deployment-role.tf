@@ -34,6 +34,22 @@ resource "aws_iam_role_policy" "deployment" {
       {
         Effect = "Allow"
         Action = [
+          # EC2 Read Permissions (required for Terraform data sources)
+          "ec2:DescribeImages",
+          "ec2:DescribeAvailabilityZones",
+          "ec2:DescribeVpcs",
+          "ec2:DescribeSubnets",
+          "ec2:DescribeSecurityGroups",
+          "ec2:DescribeInstances",
+          "ec2:DescribeInstanceTypes",
+          "ec2:DescribeKeyPairs",
+          "ec2:DescribeRouteTables",
+          "ec2:DescribeInternetGateways",
+          "ec2:DescribeNatGateways",
+          "ec2:DescribeVpcEndpoints",
+          "ec2:DescribeFlowLogs",
+          "ec2:DescribeAddresses",
+          
           # VPC and Networking
           "ec2:CreateVpc",
           "ec2:DeleteVpc",
@@ -103,10 +119,16 @@ resource "aws_iam_role_policy" "deployment" {
           "logs:CreateLogGroup",
           "logs:DeleteLogGroup",
           "logs:PutRetentionPolicy",
+          "logs:DescribeLogGroups",
+          "logs:DescribeLogStreams",
           "cloudwatch:PutDashboard",
           "cloudwatch:DeleteDashboards",
+          "cloudwatch:GetDashboard",
+          "cloudwatch:ListDashboards",
           "cloudwatch:PutMetricAlarm",
           "cloudwatch:DeleteAlarms",
+          "cloudwatch:DescribeAlarms",
+          "cloudwatch:ListMetrics",
           
           # EventBridge
           "events:PutRule",
