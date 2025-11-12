@@ -133,7 +133,7 @@ pipeline {
                         export AWS_SESSION_TOKEN=$(echo $TEMP_CREDS | jq -r '.Credentials.SessionToken')
                         
                         # Initialize Terraform with environment-specific backend (reconfigure to handle changes)
-                        terraform init -backend-config="key=jenkins-enterprise-platform/${ENVIRONMENT}/terraform.tfstate" -reconfigure
+                        terraform init -backend-config="key=jenkins/${ENVIRONMENT}/terraform.tfstate" -reconfigure
                         terraform validate
                         
                         # Plan deployment with environment-specific variables
