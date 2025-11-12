@@ -129,6 +129,7 @@ resource "aws_iam_role_policy" "deployment" {
           "cloudwatch:DeleteAlarms",
           "cloudwatch:DescribeAlarms",
           "cloudwatch:ListMetrics",
+          "cloudwatch:ListTagsForResource",
           
           # EventBridge
           "events:PutRule",
