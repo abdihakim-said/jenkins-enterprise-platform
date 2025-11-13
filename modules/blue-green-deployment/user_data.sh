@@ -82,6 +82,21 @@ EOF
 install_efs_utils() {
     echo "=== Installing EFS Utils ==="
     if ! command -v mount.efs &> /dev/null; then
+        # Wait for package locks to be released
+        local max_wait=300
+        local wait_time=0
+        while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
+            if [ $wait_time -ge $max_wait ]; then
+                echo "⚠️ Timeout waiting for package locks, killing blocking processes"
+                pkill -f unattended-upgrade || true
+                sleep 10
+                break
+            fi
+            echo "Waiting for package locks... ($wait_time/$max_wait)"
+            sleep 10
+            wait_time=$((wait_time + 10))
+        done
+        
         apt-get update -y
         apt-get install -y nfs-common
         echo "✅ NFS utils installed"
