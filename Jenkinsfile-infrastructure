@@ -136,14 +136,6 @@ pipeline {
                         terraform init -backend-config="key=jenkins/${ENVIRONMENT}/terraform.tfstate" -reconfigure
                         terraform validate
                         
-                        # Assume deployment role for state operations
-                        DEPLOYMENT_ROLE_ARN="arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):role/${ENVIRONMENT}-jenkins-enterprise-platform-deployment-role"
-                        TEMP_CREDS=$(aws sts assume-role --role-arn $DEPLOYMENT_ROLE_ARN --role-session-name "jenkins-plan-${BUILD_NUMBER}")
-                        
-                        export AWS_ACCESS_KEY_ID=$(echo $TEMP_CREDS | jq -r '.Credentials.AccessKeyId')
-                        export AWS_SECRET_ACCESS_KEY=$(echo $TEMP_CREDS | jq -r '.Credentials.SecretAccessKey')
-                        export AWS_SESSION_TOKEN=$(echo $TEMP_CREDS | jq -r '.Credentials.SessionToken')
-                        
                         # Check for state drift and import existing resources if needed
                         echo "🔍 Checking for state drift before planning..."
                         
