@@ -286,6 +286,7 @@ resource "aws_iam_role_policy" "deployment" {
           
           # SSM Parameters
           "ssm:GetParameter",
+          "ssm:GetParameters",
           "ssm:DescribeParameters",
           "ssm:PutParameter",
           "ssm:DeleteParameter",
