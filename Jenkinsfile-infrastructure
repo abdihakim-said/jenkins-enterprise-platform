@@ -155,9 +155,9 @@ pipeline {
                         echo "📊 Analyzing Terraform plan..."
                         
                         # Extract plan statistics
-                        RESOURCES_TO_ADD=$(jq '[.planned_values.root_module.resources[]? | select(.mode=="managed")] | length' ../../${ENVIRONMENT}-plan.json)
-                        RESOURCES_TO_CHANGE=$(jq '[.resource_changes[]? | select(.change.actions[] | contains("update"))] | length' ../../${ENVIRONMENT}-plan.json)
-                        RESOURCES_TO_DESTROY=$(jq '[.resource_changes[]? | select(.change.actions[] | contains("delete"))] | length' ../../${ENVIRONMENT}-plan.json)
+                        RESOURCES_TO_ADD=$(jq '[.planned_values.root_module.resources[]? | select(.mode=="managed")] | length' ${ENVIRONMENT}-plan.json)
+                        RESOURCES_TO_CHANGE=$(jq '[.resource_changes[]? | select(.change.actions[] | contains("update"))] | length' ${ENVIRONMENT}-plan.json)
+                        RESOURCES_TO_DESTROY=$(jq '[.resource_changes[]? | select(.change.actions[] | contains("delete"))] | length' ${ENVIRONMENT}-plan.json)
                         
                         echo "=== Plan Summary ==="
                         echo "Resources to add: $RESOURCES_TO_ADD"
