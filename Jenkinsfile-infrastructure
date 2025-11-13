@@ -234,6 +234,39 @@ pipeline {
                         export AWS_SECRET_ACCESS_KEY=$(echo $TEMP_CREDS | jq -r '.Credentials.SecretAccessKey')
                         export AWS_SESSION_TOKEN=$(echo $TEMP_CREDS | jq -r '.Credentials.SessionToken')
                         
+                        # Import existing S3 buckets if they exist (before apply)
+                        echo "🔍 Checking for existing S3 buckets before apply..."
+                        
+                        # Check and import ALB logs bucket
+                        ALB_BUCKET=$(aws s3 ls | grep "${ENVIRONMENT}-jenkins-alb-logs" | awk '{print $3}' | head -1)
+                        if [ -n "$ALB_BUCKET" ]; then
+                            echo "📦 Found existing ALB bucket: $ALB_BUCKET"
+                            if ! terraform state show module.alb.aws_s3_bucket.alb_logs >/dev/null 2>&1; then
+                                echo "⬇️ Importing ALB bucket to Terraform state..."
+                                terraform import module.alb.aws_s3_bucket.alb_logs "$ALB_BUCKET" || echo "⚠️ ALB bucket import failed or already exists"
+                            fi
+                        fi
+                        
+                        # Check and import CloudTrail bucket
+                        CLOUDTRAIL_BUCKET=$(aws s3 ls | grep "${ENVIRONMENT}-jenkins-cloudtrail" | awk '{print $3}' | head -1)
+                        if [ -n "$CLOUDTRAIL_BUCKET" ]; then
+                            echo "📦 Found existing CloudTrail bucket: $CLOUDTRAIL_BUCKET"
+                            if ! terraform state show module.security_automation.aws_s3_bucket.cloudtrail >/dev/null 2>&1; then
+                                echo "⬇️ Importing CloudTrail bucket to Terraform state..."
+                                terraform import module.security_automation.aws_s3_bucket.cloudtrail "$CLOUDTRAIL_BUCKET" || echo "⚠️ CloudTrail bucket import failed or already exists"
+                            fi
+                        fi
+                        
+                        # Check and import Cost Optimization bucket
+                        COST_BUCKET=$(aws s3 ls | grep "${ENVIRONMENT}-jenkins-cost-optimization" | awk '{print $3}' | head -1)
+                        if [ -n "$COST_BUCKET" ]; then
+                            echo "📦 Found existing Cost Optimization bucket: $COST_BUCKET"
+                            if ! terraform state show module.cost_optimization.aws_s3_bucket.cost_reports >/dev/null 2>&1; then
+                                echo "⬇️ Importing Cost Optimization bucket to Terraform state..."
+                                terraform import module.cost_optimization.aws_s3_bucket.cost_reports "$COST_BUCKET" || echo "⚠️ Cost Optimization bucket import failed or already exists"
+                            fi
+                        fi
+                        
                         # Apply the plan from root directory
                         terraform apply -auto-approve ${ENVIRONMENT}-deploy.tfplan
                         
