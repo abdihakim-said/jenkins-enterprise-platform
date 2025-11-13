@@ -136,6 +136,40 @@ pipeline {
                         terraform init -backend-config="key=jenkins/${ENVIRONMENT}/terraform.tfstate" -reconfigure
                         terraform validate
                         
+                        # Check for state drift and import existing resources if needed
+                        echo "🔍 Checking for state drift before planning..."
+                        
+                        # Function to import S3 bucket if it exists but not in state
+                        import_s3_if_needed() {
+                            local bucket_name=$1
+                            local terraform_resource=$2
+                            
+                            # Check if bucket exists in AWS
+                            if aws s3api head-bucket --bucket "$bucket_name" 2>/dev/null; then
+                                echo "📦 Bucket $bucket_name exists in AWS"
+                                
+                                # Check if it's in Terraform state
+                                if ! terraform state show "$terraform_resource" 2>/dev/null; then
+                                    echo "⚠️  Bucket not in state, importing: $terraform_resource"
+                                    terraform import "$terraform_resource" "$bucket_name" || echo "Import failed or already exists"
+                                else
+                                    echo "✅ Bucket already in state: $terraform_resource"
+                                fi
+                            fi
+                        }
+                        
+                        # Get existing bucket names
+                        ALB_BUCKET=$(aws s3 ls | grep "${ENVIRONMENT}-jenkins-alb-logs" | awk '{print $3}' | head -1)
+                        CLOUDTRAIL_BUCKET=$(aws s3 ls | grep "${ENVIRONMENT}-jenkins-cloudtrail" | awk '{print $3}' | head -1)
+                        
+                        # Import buckets if found
+                        if [ -n "$ALB_BUCKET" ]; then
+                            import_s3_if_needed "$ALB_BUCKET" "module.alb.aws_s3_bucket.alb_logs"
+                        fi
+                        if [ -n "$CLOUDTRAIL_BUCKET" ]; then
+                            import_s3_if_needed "$CLOUDTRAIL_BUCKET" "module.security_automation.aws_s3_bucket.cloudtrail"
+                        fi
+                        
                         # Plan deployment with environment-specific variables
                         terraform plan -var-file="environments/${ENVIRONMENT}/terraform.tfvars" -out=${ENVIRONMENT}-deploy.tfplan
                         
@@ -199,48 +233,6 @@ pipeline {
                         export AWS_ACCESS_KEY_ID=$(echo $TEMP_CREDS | jq -r '.Credentials.AccessKeyId')
                         export AWS_SECRET_ACCESS_KEY=$(echo $TEMP_CREDS | jq -r '.Credentials.SecretAccessKey')
                         export AWS_SESSION_TOKEN=$(echo $TEMP_CREDS | jq -r '.Credentials.SessionToken')
-                        
-                        # Check for state drift and import existing resources if needed
-                        echo "🔍 Checking for state drift..."
-                        
-                        # Function to import S3 bucket if it exists but not in state
-                        import_s3_if_needed() {
-                            local bucket_name=$1
-                            local terraform_resource=$2
-                            
-                            # Check if bucket exists in AWS
-                            if aws s3api head-bucket --bucket "$bucket_name" 2>/dev/null; then
-                                echo "📦 Bucket $bucket_name exists in AWS"
-                                
-                                # Check if it's in Terraform state
-                                if ! terraform state show "$terraform_resource" 2>/dev/null; then
-                                    echo "⚠️  Bucket not in state, importing: $terraform_resource"
-                                    terraform import "$terraform_resource" "$bucket_name" || echo "Import failed or already exists"
-                                else
-                                    echo "✅ Bucket already in state: $terraform_resource"
-                                fi
-                            fi
-                        }
-                        
-                        # Import S3 buckets if they exist but aren't in state
-                        ALB_BUCKET=$(terraform show -json ${ENVIRONMENT}-deploy.tfplan 2>/dev/null | jq -r '.planned_values.root_module.child_modules[] | select(.address=="module.alb") | .resources[] | select(.type=="aws_s3_bucket" and .name=="alb_logs") | .values.bucket // empty' 2>/dev/null || echo "")
-                        CLOUDTRAIL_BUCKET=$(terraform show -json ${ENVIRONMENT}-deploy.tfplan 2>/dev/null | jq -r '.planned_values.root_module.child_modules[] | select(.address=="module.security_automation") | .resources[] | select(.type=="aws_s3_bucket" and .name=="cloudtrail") | .values.bucket // empty' 2>/dev/null || echo "")
-                        
-                        # Try to get bucket names from existing resources if plan doesn't show them
-                        if [ -z "$ALB_BUCKET" ]; then
-                            ALB_BUCKET=$(aws s3 ls | grep "${ENVIRONMENT}-jenkins-alb-logs" | awk '{print $3}' | head -1)
-                        fi
-                        if [ -z "$CLOUDTRAIL_BUCKET" ]; then
-                            CLOUDTRAIL_BUCKET=$(aws s3 ls | grep "${ENVIRONMENT}-jenkins-cloudtrail" | awk '{print $3}' | head -1)
-                        fi
-                        
-                        # Import buckets if found
-                        if [ -n "$ALB_BUCKET" ]; then
-                            import_s3_if_needed "$ALB_BUCKET" "module.alb.aws_s3_bucket.alb_logs"
-                        fi
-                        if [ -n "$CLOUDTRAIL_BUCKET" ]; then
-                            import_s3_if_needed "$CLOUDTRAIL_BUCKET" "module.security_automation.aws_s3_bucket.cloudtrail"
-                        fi
                         
                         # Apply the plan from root directory
                         terraform apply -auto-approve ${ENVIRONMENT}-deploy.tfplan
