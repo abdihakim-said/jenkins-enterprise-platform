@@ -202,6 +202,31 @@ resource "aws_cloudwatch_metric_alarm" "efs_high_io" {
   }
 }
 
+# EFS Mount Failure Detection
+resource "aws_cloudwatch_metric_alarm" "efs_mount_failure" {
+  alarm_name          = "${var.project_name}-${var.environment}-efs-mount-failure"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "ClientConnections"
+  namespace           = "AWS/EFS"
+  period              = "300"
+  statistic           = "Sum"
+  threshold           = "1"
+  alarm_description   = "CRITICAL: Jenkins instances failed to mount EFS - DATA LOSS RISK"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+  treat_missing_data  = "breaching"
+
+  dimensions = {
+    FileSystemId = data.aws_efs_file_system.jenkins.id
+  }
+
+  tags = {
+    Name        = "EFS Mount Failure Alarm"
+    Environment = var.environment
+    Project     = var.project_name
+  }
+}
+
 resource "aws_cloudwatch_metric_alarm" "jenkins_high_load" {
   alarm_name          = "${var.project_name}-${var.environment}-high-load"
   comparison_operator = "GreaterThanThreshold"

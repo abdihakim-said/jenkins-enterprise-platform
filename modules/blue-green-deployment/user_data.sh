@@ -293,8 +293,14 @@ if [ -n "$EFS_FILE_SYSTEM_ID" ] && [ "$EFS_FILE_SYSTEM_ID" != "null" ]; then
     if mountpoint -q /var/lib/jenkins; then
         echo "✅ EFS is mounted at /var/lib/jenkins"
         echo "Mount details: $(mount | grep /var/lib/jenkins)"
+        # Send success notification
+        aws sns publish --topic-arn "$SNS_TOPIC_ARN" --message "✅ [$DEPLOYMENT_COLOR] EFS mounted successfully on $(hostname) at $(date)"
     else
-        echo "⚠️ EFS is not mounted, using local storage"
+        echo "❌ CRITICAL: EFS is not mounted, using local storage"
+        # Send failure alert
+        aws sns publish --topic-arn "$SNS_TOPIC_ARN" --message "🚨 CRITICAL: [$DEPLOYMENT_COLOR] EFS mount FAILED on $(hostname) at $(date) - DATA LOSS RISK"
+        # Exit with error to mark instance as unhealthy
+        exit 1
     fi
 fi
 
