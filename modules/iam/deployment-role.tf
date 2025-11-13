@@ -139,7 +139,11 @@ resource "aws_iam_role_policy" "deployment" {
           "s3:DeleteBucketPolicy",
           "s3:PutBucketVersioning",
           "s3:PutBucketEncryption",
+          "s3:DeleteBucketEncryption",
+          "s3:PutEncryptionConfiguration",
           "s3:PutBucketLifecycleConfiguration",
+          "s3:DeleteBucketLifecycle",
+          "s3:PutLifecycleConfiguration",
           "s3:PutBucketPublicAccessBlock",
           
           # Lambda Functions
