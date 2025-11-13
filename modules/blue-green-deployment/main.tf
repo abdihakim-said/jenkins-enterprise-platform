@@ -310,14 +310,15 @@ resource "aws_autoscaling_policy" "blue_scale_up" {
   policy_type            = "SimpleScaling"
 }
 
-resource "aws_autoscaling_policy" "blue_scale_down" {
-  name                   = "${local.blue_name_prefix}-scale-down"
-  scaling_adjustment     = -1
-  adjustment_type        = "ChangeInCapacity"
-  cooldown               = 300
-  autoscaling_group_name = aws_autoscaling_group.blue.name
-  policy_type            = "SimpleScaling"
-}
+# DISABLED: Conflicting simple scaling policy that kills Jenkins on low CPU
+# resource "aws_autoscaling_policy" "blue_scale_down" {
+#   name                   = "${local.blue_name_prefix}-scale-down"
+#   scaling_adjustment     = -1
+#   adjustment_type        = "ChangeInCapacity"
+#   cooldown               = 300
+#   autoscaling_group_name = aws_autoscaling_group.blue.name
+#   policy_type            = "SimpleScaling"
+# }
 
 # Target Tracking Policy for Blue Environment
 resource "aws_autoscaling_policy" "blue_target_tracking" {
@@ -353,24 +354,25 @@ resource "aws_cloudwatch_metric_alarm" "blue_high_cpu" {
   tags = local.common_tags
 }
 
-resource "aws_cloudwatch_metric_alarm" "blue_low_cpu" {
-  alarm_name          = "${local.blue_name_prefix}-low-cpu"
-  comparison_operator = "LessThanThreshold"
-  evaluation_periods  = "2"
-  metric_name         = "CPUUtilization"
-  namespace           = "AWS/EC2"
-  period              = "300"
-  statistic           = "Average"
-  threshold           = "25"
-  alarm_description   = "This metric monitors blue environment low CPU utilization"
-  alarm_actions       = [aws_autoscaling_policy.blue_scale_down.arn]
-
-  dimensions = {
-    AutoScalingGroupName = aws_autoscaling_group.blue.name
-  }
-
-  tags = local.common_tags
-}
+# DISABLED: Low CPU alarm that kills Jenkins when idle
+# resource "aws_cloudwatch_metric_alarm" "blue_low_cpu" {
+#   alarm_name          = "${local.blue_name_prefix}-low-cpu"
+#   comparison_operator = "LessThanThreshold"
+#   evaluation_periods  = "2"
+#   metric_name         = "CPUUtilization"
+#   namespace           = "AWS/EC2"
+#   period              = "300"
+#   statistic           = "Average"
+#   threshold           = "25"
+#   alarm_description   = "This metric monitors blue environment low CPU utilization"
+#   alarm_actions       = [aws_autoscaling_policy.blue_scale_down.arn]
+#
+#   dimensions = {
+#     AutoScalingGroupName = aws_autoscaling_group.blue.name
+#   }
+#
+#   tags = local.common_tags
+# }
 
 # Auto Scaling Policies for Green Environment
 resource "aws_autoscaling_policy" "green_scale_up" {
@@ -382,14 +384,15 @@ resource "aws_autoscaling_policy" "green_scale_up" {
   policy_type            = "SimpleScaling"
 }
 
-resource "aws_autoscaling_policy" "green_scale_down" {
-  name                   = "${local.green_name_prefix}-scale-down"
-  scaling_adjustment     = -1
-  adjustment_type        = "ChangeInCapacity"
-  cooldown               = 300
-  autoscaling_group_name = aws_autoscaling_group.green.name
-  policy_type            = "SimpleScaling"
-}
+# DISABLED: Conflicting simple scaling policy
+# resource "aws_autoscaling_policy" "green_scale_down" {
+#   name                   = "${local.green_name_prefix}-scale-down"
+#   scaling_adjustment     = -1
+#   adjustment_type        = "ChangeInCapacity"
+#   cooldown               = 300
+#   autoscaling_group_name = aws_autoscaling_group.green.name
+#   policy_type            = "SimpleScaling"
+# }
 
 # Target Tracking Policy for Green Environment
 resource "aws_autoscaling_policy" "green_target_tracking" {
@@ -425,24 +428,25 @@ resource "aws_cloudwatch_metric_alarm" "green_high_cpu" {
   tags = local.common_tags
 }
 
-resource "aws_cloudwatch_metric_alarm" "green_low_cpu" {
-  alarm_name          = "${local.green_name_prefix}-low-cpu"
-  comparison_operator = "LessThanThreshold"
-  evaluation_periods  = "2"
-  metric_name         = "CPUUtilization"
-  namespace           = "AWS/EC2"
-  period              = "300"
-  statistic           = "Average"
-  threshold           = "25"
-  alarm_description   = "This metric monitors green environment low CPU utilization"
-  alarm_actions       = [aws_autoscaling_policy.green_scale_down.arn]
-
-  dimensions = {
-    AutoScalingGroupName = aws_autoscaling_group.green.name
-  }
-
-  tags = local.common_tags
-}
+# DISABLED: Low CPU alarm that kills Jenkins when idle
+# resource "aws_cloudwatch_metric_alarm" "green_low_cpu" {
+#   alarm_name          = "${local.green_name_prefix}-low-cpu"
+#   comparison_operator = "LessThanThreshold"
+#   evaluation_periods  = "2"
+#   metric_name         = "CPUUtilization"
+#   namespace           = "AWS/EC2"
+#   period              = "300"
+#   statistic           = "Average"
+#   threshold           = "25"
+#   alarm_description   = "This metric monitors green environment low CPU utilization"
+#   alarm_actions       = [aws_autoscaling_policy.green_scale_down.arn]
+#
+#   dimensions = {
+#     AutoScalingGroupName = aws_autoscaling_group.green.name
+#   }
+#
+#   tags = local.common_tags
+# }
 
 # Lambda function for automated deployment orchestration
 resource "aws_lambda_function" "deployment_orchestrator" {

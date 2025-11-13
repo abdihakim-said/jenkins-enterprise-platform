@@ -24,10 +24,10 @@ resource "aws_iam_role" "jenkins" {
   })
 }
 
-# Jenkins IAM Policy
+# Jenkins IAM Policy - Core Permissions
 resource "aws_iam_policy" "jenkins" {
   name        = "${var.environment}-${replace(lower(var.project_name), " ", "-")}-jenkins-policy"
-  description = "IAM policy for Jenkins instances"
+  description = "Core IAM policy for Jenkins instances"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -77,6 +77,67 @@ resource "aws_iam_policy" "jenkins" {
           "arn:aws:cloudwatch:*:${data.aws_caller_identity.current.account_id}:metric/*"
         ]
       },
+      {
+        Effect = "Allow"
+        Action = [
+          # S3 permissions for artifacts and backups
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject",
+          "s3:ListBucket",
+          "s3:GetBucketLocation",
+          "s3:GetAccelerateConfiguration",
+          "s3:PutBucketPolicy",
+          "s3:DeleteBucketPolicy",
+          "s3:PutBucketVersioning",
+          "s3:PutEncryptionConfiguration",
+          "s3:DeleteBucketEncryption",
+          "s3:PutBucketPublicAccessBlock",
+          "s3:DeletePublicAccessBlock",
+          "s3:PutLifecycleConfiguration",
+          "s3:DeleteBucketLifecycle"
+        ]
+        Resource = [
+          "arn:aws:s3:::*jenkins*",
+          "arn:aws:s3:::*jenkins*/*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          # DynamoDB permissions for Terraform state locking
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:DeleteItem"
+        ]
+        Resource = [
+          "arn:aws:dynamodb:*:*:table/jenkins-terraform-locks"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          # Allow assuming deployment role for infrastructure operations
+          "sts:AssumeRole"
+        ]
+        Resource = [
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/*deployment-role"
+        ]
+      }
+    ]
+  })
+
+  tags = var.tags
+}
+
+# Jenkins IAM Policy - Extended Permissions
+resource "aws_iam_policy" "jenkins_extended" {
+  name        = "${var.environment}-${replace(lower(var.project_name), " ", "-")}-jenkins-extended-policy"
+  description = "Extended IAM policy for Jenkins instances"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
       {
         Effect = "Allow"
         Action = [
@@ -154,43 +215,6 @@ resource "aws_iam_policy" "jenkins" {
       {
         Effect = "Allow"
         Action = [
-          # S3 permissions for artifacts and backups
-          "s3:GetObject",
-          "s3:PutObject",
-          "s3:DeleteObject",
-          "s3:ListBucket",
-          "s3:GetBucketLocation",
-          "s3:GetAccelerateConfiguration",
-          "s3:PutBucketPolicy",
-          "s3:DeleteBucketPolicy",
-          "s3:PutBucketVersioning",
-          "s3:PutEncryptionConfiguration",
-          "s3:DeleteBucketEncryption",
-          "s3:PutBucketPublicAccessBlock",
-          "s3:DeletePublicAccessBlock",
-          "s3:PutLifecycleConfiguration",
-          "s3:DeleteBucketLifecycle"
-        ]
-        Resource = [
-          "arn:aws:s3:::*jenkins*",
-          "arn:aws:s3:::*jenkins*/*"
-        ]
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          # DynamoDB permissions for Terraform state locking
-          "dynamodb:GetItem",
-          "dynamodb:PutItem",
-          "dynamodb:DeleteItem"
-        ]
-        Resource = [
-          "arn:aws:dynamodb:*:*:table/jenkins-terraform-locks"
-        ]
-      },
-      {
-        Effect = "Allow"
-        Action = [
           # IAM permissions for policy management
           "iam:ListPolicyVersions",
           "iam:CreatePolicyVersion",
@@ -200,120 +224,6 @@ resource "aws_iam_policy" "jenkins" {
         Resource = [
           "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/*jenkins*"
         ]
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          # Comprehensive read permissions for Terraform state management
-          "lambda:GetFunction",
-          "lambda:GetPolicy", 
-          "lambda:ListVersionsByFunction",
-          "lambda:GetFunctionCodeSigningConfig",
-          "lambda:InvokeFunction",
-          "lambda:UpdateFunctionCode",
-          "lambda:UpdateFunctionConfiguration",
-          "securityhub:DescribeHub",
-          "securityhub:GetFindings",
-          "securityhub:BatchImportFindings",
-          "guardduty:GetDetector",
-          "guardduty:GetFindings",
-          "guardduty:ListFindings",
-          "cloudtrail:DescribeTrails",
-          "cloudtrail:GetTrailStatus",
-          "cloudtrail:ListTags",
-          "s3:GetBucket*",
-          "s3:GetEncryptionConfiguration",
-          "s3:GetLifecycleConfiguration",
-          "s3:GetReplicationConfiguration",
-          "budgets:ViewBudget",
-          "budgets:ListTagsForResource",
-          "autoscaling:DescribeScheduledActions",
-          "autoscaling:DescribePolicies",
-          "autoscaling:DescribeAutoScalingGroups",
-          "autoscaling:DescribeAutoScalingInstances",
-          "autoscaling:SetInstanceHealth",
-          "autoscaling:UpdateAutoScalingGroup",
-          "autoscaling:SetDesiredCapacity",
-          "autoscaling:TerminateInstanceInAutoScalingGroup",
-          "autoscaling:PutScheduledUpdateGroupAction",
-          "autoscaling:DeleteScheduledAction",
-          "ec2:DescribeFlowLogs",
-          "iam:GetRole",
-          "iam:GetPolicy",
-          "iam:GetPolicyVersion",
-          "iam:GetRolePolicy",
-          "iam:ListRolePolicies",
-          "iam:ListAttachedRolePolicies",
-          "iam:GetInstanceProfile",
-          "kms:GetKeyPolicy",
-          "kms:GetKeyRotationStatus",
-          "kms:DescribeKey",
-          "kms:ListResourceTags",
-          "kms:ListAliases",
-          "cloudwatch:GetDashboard",
-          "cloudwatch:DescribeAlarms",
-          "cloudwatch:ListTagsForResource",
-          "cloudwatch:PutMetricAlarm",
-          "cloudwatch:DeleteAlarms",
-          "cloudwatch:PutDashboard",
-          "cloudwatch:DeleteDashboards",
-          "events:DescribeRule",
-          "events:ListTargetsByRule",
-          "events:ListTagsForResource",
-          "events:PutRule",
-          "events:DeleteRule",
-          "events:PutTargets",
-          "events:RemoveTargets",
-          "config:DescribeConfigRules",
-          "config:ListTagsForResource",
-          "sns:GetTopicAttributes",
-          "sns:GetSubscriptionAttributes",
-          "sns:ListTagsForResource",
-          "sns:Publish",
-          "sns:Subscribe",
-          "sns:Unsubscribe",
-          "ec2:DescribeAvailabilityZones",
-          "ec2:DescribeVpcAttribute",
-          "ec2:DescribeInstanceTypes",
-          "ec2:DescribeSecurityGroupRules",
-          "ec2:DescribeInternetGateways",
-          "ec2:DescribeVpcEndpoints",
-          "ec2:DescribeInstanceAttribute",
-          "ec2:DescribeAddresses",
-          "ec2:DescribeRouteTables",
-          "ec2:DescribePrefixLists",
-          "ec2:DescribeInstanceCreditSpecifications",
-          "ec2:DescribeAddressesAttribute",
-          "ec2:DescribeNetworkInterfaces",
-          "ec2:DescribeNatGateways",
-          "elasticloadbalancing:DescribeLoadBalancers",
-          "elasticloadbalancing:DescribeTargetGroups",
-          "elasticloadbalancing:DescribeLoadBalancerAttributes",
-          "elasticloadbalancing:DescribeTargetGroupAttributes",
-          "elasticloadbalancing:DescribeListeners",
-          "elasticloadbalancing:DescribeListenerAttributes",
-          "elasticloadbalancing:DescribeTags",
-          "elasticloadbalancing:DescribeTargetHealth",
-          "elasticloadbalancing:RegisterTargets",
-          "elasticloadbalancing:DeregisterTargets",
-          "elasticloadbalancing:ModifyLoadBalancerAttributes",
-          "elasticloadbalancing:ModifyTargetGroupAttributes",
-          "elasticfilesystem:DescribeFileSystems",
-          "elasticfilesystem:DescribeMountTargets",
-          "ssm:DescribeParameters",
-          "ssm:ListTagsForResource"
-        ]
-        Resource = "*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          # Allow assuming deployment role for infrastructure operations
-          "sts:AssumeRole"
-        ]
-        Resource = [
-          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/*deployment-role"
-        ]
       }
     ]
   })
@@ -321,10 +231,15 @@ resource "aws_iam_policy" "jenkins" {
   tags = var.tags
 }
 
-# Attach policy to role
+# Attach policies to role
 resource "aws_iam_role_policy_attachment" "jenkins" {
   role       = aws_iam_role.jenkins.name
   policy_arn = aws_iam_policy.jenkins.arn
+}
+
+resource "aws_iam_role_policy_attachment" "jenkins_extended" {
+  role       = aws_iam_role.jenkins.name
+  policy_arn = aws_iam_policy.jenkins_extended.arn
 }
 
 # Attach AWS managed policies
