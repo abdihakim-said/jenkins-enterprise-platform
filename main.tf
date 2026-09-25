@@ -145,7 +145,7 @@ module "blue_green_deployment" {
 }
 
 # Cost-Optimized Observability Module
-# Smart monitoring using existing infrastructure - saves $105/month vs ECS
+# CloudWatch dashboards and alarms for the ALB, EFS and ASGs
 module "cost_optimized_observability" {
   source = "./modules/cost-optimized-observability"
 
@@ -153,6 +153,9 @@ module "cost_optimized_observability" {
   environment  = var.environment
   aws_region   = var.aws_region
   alert_email  = var.alert_email
+
+  efs_file_system_id = module.efs.file_system_id
+  alb_name           = "${var.environment}-jenkins-alb"
 
   depends_on = [
     module.blue_green_deployment,

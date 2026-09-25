@@ -1,9 +1,10 @@
 terraform {
+  # Partial backend configuration - supply bucket/table at init time:
+  #   terraform init -backend-config=backend.hcl
+  # See backend.hcl.example.
   backend "s3" {
-    bucket         = "jenkins-tf-state-979033443535"
-    key            = "jenkins/dev/terraform.tfstate"  # Correct path with actual infrastructure
-    region         = "us-east-1"
-    dynamodb_table = "jenkins-terraform-locks"
-    encrypt        = true
+    key     = "jenkins/dev/terraform.tfstate"
+    region  = "us-east-1"
+    encrypt = true
   }
 }

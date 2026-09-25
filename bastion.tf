@@ -25,7 +25,7 @@ resource "aws_security_group" "bastion" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["95.214.230.251/32"]
+    cidr_blocks = var.admin_cidr_blocks
     description = "SSH from admin IP only"
   }
 

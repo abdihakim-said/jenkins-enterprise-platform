@@ -1,44 +1,16 @@
-# Environment Configurations
+# Environments
 
-This directory contains environment-specific configurations for the Jenkins Enterprise Platform.
+Only `dev/` is implemented today. It is the environment I deployed and tested.
 
-## Available Environments
+| Setting | dev |
+|---|---|
+| VPC CIDR | 10.1.0.0/16 |
+| Controller | t3.small, single active instance |
+| NAT | single NAT gateway |
+| Log / backup retention | 7 days |
 
-### Development (`dev/`)
-- **Purpose**: Development and testing
-- **Instance Type**: t3.small (cost-optimized)
-- **VPC CIDR**: 10.1.0.0/16
-- **Features**: Single NAT Gateway, minimal monitoring, 7-day retention
+Staging and production would be added as further `*.tfvars` files with their own backend state key. Several root variables (NAT count, ASG sizing) still need to be wired through to the modules first; see "Known limitations" in the main README.
 
-### Staging (`staging/`)
-- **Purpose**: Pre-production testing
-- **Instance Type**: t3.medium (production-like)
-- **VPC CIDR**: 10.2.0.0/16
-- **Features**: Single NAT Gateway, full monitoring, 14-day retention
-
-### Production (`production/`)
-- **Purpose**: Live production workloads
-- **Instance Type**: t3.large (high availability)
-- **VPC CIDR**: 10.3.0.0/16
-- **Features**: Multi-AZ NAT Gateways, full monitoring, 90-day retention
-
-## Deployment
-
-Deploy to specific environment:
 ```bash
-./deploy-env.sh dev
-./deploy-env.sh staging
-./deploy-env.sh production
+terraform plan -var-file=environments/dev/terraform.tfvars
 ```
-
-## Configuration Differences
-
-| Feature | Dev | Staging | Production |
-|---------|-----|---------|------------|
-| Instance Type | t3.small | t3.medium | t3.large |
-| Min Instances | 1 | 1 | 2 |
-| Max Instances | 2 | 3 | 5 |
-| NAT Gateways | 1 | 1 | 3 |
-| Log Retention | 7 days | 14 days | 30 days |
-| Backup Retention | 7 days | 14 days | 90 days |
-| Monitoring | Basic | Full | Full |

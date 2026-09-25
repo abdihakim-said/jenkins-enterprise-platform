@@ -1,753 +1,113 @@
-# Jenkins Enterprise Platform
-## Client Project - Luuul Solutions
+# Jenkins on AWS: Golden-AMI Factory + Terraform Platform
 
-> **Enterprise-grade CI/CD platform with zero-touch automation, disaster recovery, and security-first DevSecOps**
+A self-hosted Jenkins controller on AWS, built from a hardened Packer golden AMI, deployed by Terraform, with Jenkins state on EFS so the instance itself is disposable.
 
-[![AWS](https://img.shields.io/badge/AWS-Cloud-orange)](https://aws.amazon.com/)
-[![Terraform](https://img.shields.io/badge/Terraform-IaC-purple)](https://terraform.io/)
-[![Jenkins](https://img.shields.io/badge/Jenkins-CI%2FCD-blue)](https://jenkins.io/)
-[![Security](https://img.shields.io/badge/Security-DevSecOps-green)](https://github.com/aquasecurity/trivy)
-
-## 🏢 Project Overview
-
-**Client**: Luuul Solutions  
-**Role**: Senior DevOps Engineer  
-**Duration**: 3 months  
-**Infrastructure Investment**: $50,000+  
-
-### Business Challenge
-Luuul Solutions required a scalable, secure CI/CD platform supporting their growing development team with:
-- Zero-downtime deployments for critical applications
-- Quarterly security compliance automation
-- Multi-region disaster recovery capabilities
-- Cost-optimized infrastructure (~$90/month savings)
-
-### Solution Delivered
-Production-ready Jenkins deployment on AWS using modular Terraform architecture with Infrastructure as Code (IaC) principles, featuring 12 specialized modules and enterprise-grade automation.
-
-## 🏗️ Architecture Overview
-
-![Jenkins Enterprise Platform - Detailed Architecture](./assets/generated-diagrams/jenkins_enterprise_platform_-_detailed_aws_architecture.png)
-
-![Jenkins AWS Architecture](./assets/generated-diagrams/jenkins-aws-architecture.drawio.png)
-
-This project deploys a highly available, scalable Jenkins environment with:
-
-- **High Availability**: Multi-AZ deployment with Auto Scaling Group
-- **Security**: VPC isolation, security groups, and encrypted storage
-- **Scalability**: Auto Scaling with CloudWatch-based triggers
-- **Persistence**: EFS for Jenkins data and workspace storage
-- **Load Balancing**: Application Load Balancer with health checks
-- **Monitoring**: CloudWatch dashboards, alarms, and centralized logging
-- **Cost Optimization**: Single NAT Gateway design saves ~$90/month
-- **DevSecOps**: Automated security scanning with TFSec, Trivy, Checkov
-- **Disaster Recovery**: Multi-region AMI replication and automated backups
-- **Blue-Green Deployment**: Zero-downtime deployment strategy
-
-## 🚀 Enterprise Features
-
-### ✅ Zero-Touch Automation
-- **Quarterly AMI updates** with automated cron triggers (`H 2 1 */3 *`)
-- **Golden AMI creation** with security hardening (CIS Ubuntu 22.04)
-- **Infrastructure deployment** with validation and health checks
-- **Disaster recovery sync** to secondary AWS region (us-west-2)
-
-### ✅ Security-First DevSecOps
-- **TFSec**: Terraform security scanning with critical issue blocking
-- **Trivy**: Container and filesystem vulnerability scanning
-- **Checkov**: Infrastructure as Code security validation
-- **GitLeaks**: Secrets detection in codebase
-- **AWS Inspector**: Runtime security assessments
-
-### ✅ Enterprise Deployment Strategies
-- **Blue-Green Deployment**: Zero-downtime deployments with automatic rollback
-- **Multi-Environment**: Separate dev, staging, production configurations
-- **Approval Workflows**: Manual approval gates for production deployments
-- **Automated Validation**: Health checks and security validation post-deployment
-
-### ✅ Cost-Optimized Observability
-- **Smart Monitoring**: CloudWatch dashboards with infrastructure and application metrics
-- **Intelligent Alerting**: CPU, response time, and custom Jenkins job metrics
-- **Log Aggregation**: Centralized logging with S3 archival and lifecycle policies
-- **Cost Savings**: $105/month savings vs enterprise ECS monitoring stack
-
-## 📊 Business Impact & Results
-
-| Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| Deployment Time | 45 minutes | 8 minutes | 82% faster |
-| Downtime per Deploy | 5 minutes | 0 minutes | 100% elimination |
-| Security Scans | Manual | Automated | 100% coverage |
-| Infrastructure Cost | $200/month | $110/month | 45% reduction |
-| Recovery Time Objective | 4+ hours | 30 minutes | 87% improvement |
-| AMI Build Frequency | Manual | Quarterly | Automated compliance |
-| Monitoring Cost | $120/month | $15/month | 87% reduction |
-
-## 📁 Project Structure
-
-```
-jenkins-enterprise-platform/
-├── modules/                    # 11 Modular Terraform components
-│   ├── vpc/                   # VPC, subnets, NAT gateway, flow logs
-│   ├── security_groups/       # Security group configurations
-│   ├── iam/                   # IAM roles, policies, KMS encryption
-│   ├── efs/                   # Elastic File System with access points
-│   ├── alb/                   # Application Load Balancer with S3 logging
-│   ├── jenkins/               # Jenkins EC2, Auto Scaling, launch template
-│   ├── cloudwatch/            # Monitoring, dashboards, alarms, SNS
-│   ├── blue-green-deployment/ # Zero-downtime deployment strategy
-│   ├── s3-backup/             # Automated backup with versioning
-│   ├── cost-optimized-observability/ # Smart monitoring (~$105/month savings)
-│   ├── cost-optimization/     # Automated scaling, budgets, cost analytics
-│   ├── security-automation/   # GuardDuty, Security Hub, Config, CloudTrail, incident response
-│   └── inspector/             # Security monitoring and compliance
-├── environments/              # Environment-specific configurations
-│   ├── dev/                   # Development environment
-│   ├── staging/               # Staging environment
-│   └── production/            # Production environment
-├── packer/                    # Golden AMI creation with security hardening
-│   ├── jenkins-ami.pkr.hcl    # Packer configuration
-│   ├── scripts/               # Setup and security hardening scripts
-│   └── variables.pkr.hcl      # Environment-specific variables
-├── scripts/                   # Utility and maintenance scripts
-│   ├── backup/                # Automated backup scripts
-│   └── ami-lifecycle.sh       # AMI management and cleanup
-├── pipelines/                 # Jenkins pipeline definitions
-│   ├── Jenkinsfile-golden-image      # AMI creation with DR sync
-│   ├── Jenkinsfile-infrastructure    # Infrastructure deployment
-│   └── Jenkinsfile-backup           # Automated backup pipeline
-├── docs/                      # Architecture and deployment documentation
-│   ├── BLUE_GREEN_DEPLOYMENT.md      # Lambda-orchestrated deployment strategy
-│   ├── PROJECT_ACHIEVEMENTS.md       # Comprehensive achievements documentation
-│   └── [Additional technical docs]
-├── main.tf                    # Root Terraform configuration
-├── variables.tf               # Input variables
-├── outputs.tf                 # Output values
-└── terraform.tfvars          # Environment-specific values
-```
-
-## 🛠️ Technology Stack
-
-**Cloud Platform**: AWS (VPC, EC2, EFS, ALB, Auto Scaling, S3, CloudWatch)  
-**Infrastructure as Code**: Terraform (12 custom modules)  
-**CI/CD Platform**: Jenkins with automated pipelines  
-**Image Building**: HashiCorp Packer with security hardening  
-**Security Tools**: TFSec, Trivy, Checkov, AWS Inspector, GitLeaks  
-**Monitoring**: CloudWatch, SNS, custom dashboards, cost-optimized observability  
-**Backup & DR**: AWS Backup, S3 versioning, multi-region replication  
-
-## 🚀 Quick Start
-
-### 30-Minute Deployment
-
-```bash
-# 1. Install prerequisites
-brew install terraform awscli packer
-
-# 2. Configure AWS
-aws configure
-
-# 3. Clone repository
-git clone https://github.com/yourusername/jenkins-enterprise-platform
-cd jenkins-enterprise-platform
-
-# 4. Build golden AMI
-cd packer
-packer init jenkins-ami.pkr.hcl
-packer build jenkins-ami.pkr.hcl
-
-# 5. Deploy infrastructure
-cd ../environments/dev
-terraform init
-terraform apply -auto-approve
-
-# 6. Get Jenkins credentials
-terraform output -raw jenkins_url
-aws ssm get-parameter --name '/jenkins/dev/admin-password' --with-decryption --query 'Parameter.Value' --output text --region us-east-1
-```
-
-**📖 Complete Guides**:
-- **[QUICK_START.md](./QUICK_START.md)** - 30-minute deployment guide
-- **[docs/IMPLEMENTATION_GUIDE.md](./docs/IMPLEMENTATION_GUIDE.md)** - Complete step-by-step implementation (60 minutes)
-- **[docs/TESTING_GUIDE.md](./docs/TESTING_GUIDE.md)** - Comprehensive testing procedures
-- **[TESTING_QUICK_START.md](./TESTING_QUICK_START.md)** - Quick testing commands
-
-## 🔧 Configuration
-
-### Environment-Specific Configurations
-
-**Development Environment** (`environments/dev/terraform.tfvars`):
-```hcl
-environment = "dev"
-vpc_cidr = "10.1.0.0/16"
-jenkins_instance_type = "t3.small"
-jenkins_desired_capacity = 1
-health_check_grace_period = 600  # 10 minutes
-```
-
-**Production Environment** (`environments/production/terraform.tfvars`):
-```hcl
-environment = "production"
-vpc_cidr = "10.3.0.0/16"
-jenkins_instance_type = "t3.large"
-jenkins_desired_capacity = 2
-health_check_grace_period = 1200  # 20 minutes
-single_nat_gateway = false  # Multi-AZ NAT for HA
-```
-
-## 📊 Monitoring & Logging
-
-### Cost-Optimized Observability Stack
-- **CloudWatch Dashboard**: `${environment}-jenkins-enterprise-platform-observability`
-- **Smart Alarms**: CPU utilization, response time, Jenkins job metrics
-- **Log Groups**: 
-  - `/jenkins/${environment}/application` - Jenkins application logs (30-day retention)
-  - `/jenkins/${environment}/system` - System logs (14-day retention)
-- **S3 Log Storage**: Long-term archival with intelligent lifecycle policies
-
-### CloudWatch Components
-- **Dashboard**: `${environment}-jenkins-enterprise-platform-dashboard`
-- **Log Groups**: 
-  - `/jenkins/${environment}/application` - Jenkins application logs
-  - `/jenkins/${environment}/system` - System logs
-  - `/jenkins/${environment}/user-data` - Instance initialization logs
-  - `/aws/vpc/flowlogs/${environment}-jenkins-enterprise-platform` - VPC flow logs
-
-### Cost-Optimized Observability Configuration
-
-**📊 [Complete Cost Optimization Showcase](docs/COST_OPTIMIZATION_SHOWCASE.md)** - **$345/month savings (67% reduction)**
-
-**Smart Monitoring Setup** (`modules/cost-optimized-observability/`):
-```hcl
-# CloudWatch Dashboard with infrastructure metrics
-dashboard_name = "${environment}-jenkins-enterprise-platform-observability"
-
-# Intelligent alarms with SNS notifications
-cpu_threshold = 80          # CPU utilization alarm
-response_time_threshold = 2 # Response time alarm (seconds)
-
-# Log retention policies
-application_log_retention = 30  # days
-system_log_retention = 14      # days
-
-# S3 lifecycle for cost optimization
-log_archive_days = 30      # Move to IA storage
-log_glacier_days = 90      # Move to Glacier
-log_expiry_days = 365      # Delete after 1 year
-```
-
-**Monthly Cost Breakdown**:
-```bash
-Cost-Optimized Observability: ~$15/month
-├── CloudWatch metrics + alarms: $8/month
-├── CloudWatch logs (retention): $3/month  
-├── S3 storage with lifecycle: $2/month
-├── SNS notifications: $1/month
-└── Data transfer: $1/month
-
-vs Enterprise ECS Stack: ~$120/month
-💰 SAVINGS: $105/month (87% reduction)
-```
-
-### Automated Alarms & Notifications
-- High CPU utilization (>80% for 5 minutes)
-- High response time (>2 seconds)
-- High error rate (>5%)
-- Auto Scaling triggers for scale up/down
-- Security scan failures
-- Backup job failures
-
-## 🛡️ Security Automation
-
-### ✅ **Automated Threat Detection**
-- **GuardDuty**: Real-time threat detection with malware protection and S3 monitoring
-- **Security Hub**: Centralized security findings with compliance standards
-- **EventBridge Integration**: Automated security event routing and processing
-
-### ✅ **Compliance Monitoring**
-- **AWS Config Rules**: 6 active compliance rules
-  - Encrypted volumes validation
-  - S3 bucket public access prevention
-  - IAM password policy enforcement (14+ chars, complexity)
-  - MFA requirement for root account
-  - SSH access restrictions
-  - CloudTrail encryption validation
-- **Real-time Compliance**: Automated alerts on policy violations
-
-### ✅ **Automated Incident Response**
-- **Lambda Security Responder**: Processes high-severity findings (7.0+ severity)
-- **SNS Notifications**: Email alerts to `said.devops123@gmail.com`
-- **Auto-scaling Response**: Can isolate compromised instances
-- **CloudTrail Integration**: Complete audit trail for security events
-
-### ✅ **Security Metrics**
-- **GuardDuty Findings**: 1 low-severity finding (expected root usage)
-- **Config Compliance**: 6/6 rules active and monitoring
-- **Response Time**: <300ms for automated incident processing
-- **Coverage**: 100% infrastructure monitored 24/7
-
-## 💾 Storage & Backup Infrastructure
-
-### **S3 Buckets (Managed)**
-- **ALB Access Logs**: `dev-jenkins-alb-logs-*` - Load balancer request logging
-- **CloudTrail Audit Logs**: 
-  - `dev-jenkins-cloudtrail-*` (Current Terraform managed)
-  - `dev-jenkins-enterprise-platform-cloudtrail-*` (Legacy, actively used)
-- **AWS Config Compliance**: `dev-jenkins-enterprise-platform-config-*` - Configuration compliance data
-- **Cost Reports**: `dev-jenkins-cost-optimization-*` - Automated cost analysis
-- **Jenkins Backups**: `dev-jenkins-enterprise-platform-backup-*` - EFS backup storage
-
-### **EFS File System**
-- **Shared Storage**: Jenkins home and workspace data
-- **Multi-AZ**: Mount targets in all availability zones
-- **Backup Policy**: Daily automated backups (30-day retention)
-- **Intelligent Tiering**: Automatic cost optimization
-
-### **Backup Strategy**
-- **EFS Backups**: Daily automated backups via AWS Backup
-- **S3 Lifecycle**: 30-day retention with automated archival
-- **Cross-Region**: AMI replication for disaster recovery
-- **Versioning**: Enabled on all critical S3 buckets
-
-## 🔒 Security & Compliance Features
-
-- **Network Security**: Private subnets, security groups with least privilege
-- **Encryption**: EFS and EBS volumes encrypted with KMS
-- **IAM Security**: Role-based access with minimal permissions
-- **VPC Flow Logs**: Network traffic monitoring and analysis
-- **S3 Security**: ALB logs stored in encrypted S3 bucket
-- **CIS Compliance**: Ubuntu 22.04 CIS benchmarks implementation
-- **Vulnerability Scanning**: Automated scanning in CI/CD pipeline
-- **Secrets Management**: No hardcoded secrets, SSM Parameter Store integration
-
-## 💰 Cost Optimization Features
-
-- **Single NAT Gateway**: Reduces monthly costs by ~$90 vs multi-AZ setup
-- **Auto Scaling**: Automatically scales down during low usage periods
-- **EFS Intelligent Tiering**: Automatically moves infrequently accessed files to lower-cost storage
-- **GP3 EBS Volumes**: Better price-performance ratio than GP2
-- **Instance Right-sizing**: Optimized instance types for each environment
-- **Resource Tagging**: Comprehensive cost allocation and tracking
-- **Smart Observability**: CloudWatch-based monitoring saves $105/month vs ECS stack
-
-## 🔄 Enterprise Pipelines
-
-### Golden AMI Pipeline (`Jenkinsfile-golden-image`)
-- **Quarterly Automation**: Cron-triggered AMI updates every 3 months
-- **Security Hardening**: CIS Ubuntu 22.04 compliance implementation
-- **Multi-Environment**: Builds AMIs for dev, staging, production
-- **Vulnerability Scanning**: Trivy and AWS Inspector integration
-- **DR Replication**: Automatic AMI copying to disaster recovery region
-- **Quality Gates**: Fails build on critical security vulnerabilities
-
-### Infrastructure Pipeline (`Jenkinsfile-infrastructure`)
-- **Security-First**: TFSec, Checkov, GitLeaks scanning before deployment
-- **Blue-Green Support**: Zero-downtime deployment option
-- **Environment Validation**: Automated health checks and security validation
-- **Approval Workflows**: Manual approval gates for production deployments
-- **Automated Backup**: EFS and configuration backup integration
-- **Rollback Capability**: Automated rollback on deployment failures
-
-## 🚨 Disaster Recovery
-
-### Multi-Region Strategy
-- **Primary Region**: us-east-1 (N. Virginia)
-- **DR Region**: us-west-2 (Oregon)
-- **RTO**: 30 minutes (Recovery Time Objective)
-- **RPO**: 1 hour (Recovery Point Objective)
-
-### Automated DR Components
-- **AMI Replication**: Automatic copying of golden AMIs to DR region
-- **EFS Backup**: Daily automated backups with 30-day retention
-- **Configuration Backup**: Jenkins job configurations stored in S3
-- **Infrastructure as Code**: Complete infrastructure reproducible in DR region
-
-## 📈 Performance Metrics
-
-### Build Performance
-- **AMI Creation Time**: ~15 minutes (with security scanning)
-- **Infrastructure Deployment**: ~8 minutes (standard) / ~12 minutes (blue-green)
-- **Security Scan Duration**: ~3 minutes (TFSec + Checkov + GitLeaks)
-- **Health Check Validation**: ~2 minutes
-
-### Scalability Metrics
-- **Auto Scaling Response**: <5 minutes to scale up/down
-- **Load Balancer Health**: 99.9% uptime achieved
-- **EFS Performance**: General Purpose with burst credits
-- **Multi-AZ Availability**: 99.99% availability target
-
-## 🎯 Client Testimonial
-
-> *"The Jenkins Enterprise Platform delivered by Abdihakim transformed our deployment process completely. We went from manual, error-prone deployments taking hours to fully automated, zero-downtime releases in minutes. The disaster recovery capabilities and quarterly security compliance automation give us complete confidence in our business continuity. The 45% cost reduction while improving reliability exceeded our expectations."*
-> 
-> **— Technical Director, Luuul Solutions**
-
-## 🏢 Enterprise Usage Scenarios
-
-### Real-World Team Workflows
-
-#### **Development Team (Frontend/Backend)**
-```bash
-# Daily Developer Workflow
-1. Developer pushes code to feature branch
-2. Jenkins automatically triggers:
-   ├── Code quality scan (SonarQube)
-   ├── Unit tests execution
-   ├── Security vulnerability scan (Trivy)
-   └── Build artifact creation
-
-3. Pull Request triggers:
-   ├── Integration tests
-   ├── Performance benchmarks
-   └── Deployment to dev environment
-```
-
-#### **QA Team (Testing & Validation)**
-```bash
-# QA Environment Management
-1. QA requests fresh environment:
-   └── Jenkins job: "deploy-qa-environment"
-   
-2. Automated test execution:
-   ├── Smoke tests (5 minutes)
-   ├── Regression suite (30 minutes)
-   ├── Load testing (Apache Bench integration)
-   └── Security penetration tests
-
-3. Test reporting:
-   ├── Automated Slack notifications
-   ├── JIRA ticket updates
-   └── Test coverage reports
-```
-
-#### **DevOps Team (Infrastructure & Deployment)**
-```bash
-# Infrastructure Management
-1. Golden AMI updates (Quarterly):
-   └── Jenkins job: "golden-ami-pipeline"
-   ├── Security patches application
-   ├── Compliance validation (CIS benchmarks)
-   └── Multi-region AMI replication
-
-2. Production deployments:
-   └── Jenkins job: "production-deployment"
-   ├── Blue-green deployment orchestration
-   ├── Database migration execution
-   ├── Health check validation
-   └── Automatic rollback on failure
-
-3. Cost optimization:
-   └── Automated scaling schedules
-   ├── Weekend scale-down (Friday 8 PM)
-   ├── Morning scale-up (Monday 8 AM)
-   └── Monthly cost reports generation
-```
-
-#### **Security Team (Compliance & Auditing)**
-```bash
-# Security Operations
-1. Daily security scans:
-   ├── Container vulnerability scanning
-   ├── Infrastructure compliance checks
-   ├── Secrets detection (GitLeaks)
-   └── AWS Inspector findings processing
-
-2. Compliance reporting:
-   ├── SOC 2 compliance validation
-   ├── PCI DSS security controls
-   ├── GDPR data handling verification
-   └── Quarterly audit trail generation
-
-3. Incident response:
-   ├── Automated security alerts (SNS)
-   ├── Emergency deployment rollbacks
-   └── Security patch deployment
-```
-
-### **Multi-Environment Strategy**
-
-#### **Environment Isolation**
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    ENTERPRISE ENVIRONMENTS                  │
-├─────────────────────────────────────────────────────────────┤
-│  Development (dev)     │  Staging (staging)  │  Production  │
-│  ├── 1 Jenkins master │  ├── 1 Jenkins     │  ├── 2 Masters│
-│  ├── t3.small         │  │   master        │  │   (HA)     │
-│  ├── Auto-shutdown    │  ├── t3.medium     │  ├── t3.large │
-│  │   (6 PM - 8 AM)    │  ├── Production-   │  ├── 24/7     │
-│  └── Cost: $45/month  │  │   like config   │  │   uptime   │
-│                       │  └── Cost: $85/mo  │  └── $180/mo  │
-├─────────────────────────────────────────────────────────────┤
-│  Disaster Recovery (us-west-2)  │  Sandbox (temporary)      │
-│  ├── Standby infrastructure    │  ├── On-demand creation   │
-│  ├── 30-minute RTO             │  ├── Developer testing    │
-│  ├── Cross-region replication  │  ├── Auto-cleanup (7 days)│
-│  └── Cost: $25/month (standby) │  └── Cost: $20/month avg  │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### **Role-Based Access Control (RBAC)**
-
-#### **Team Permissions Matrix**
-| Role | Dev Environment | Staging | Production | Infrastructure |
-|------|----------------|---------|------------|----------------|
-| **Junior Developer** | ✅ Build/Deploy | ❌ View Only | ❌ No Access | ❌ No Access |
-| **Senior Developer** | ✅ Full Access | ✅ Deploy | ❌ View Only | ❌ No Access |
-| **Tech Lead** | ✅ Full Access | ✅ Full Access | ✅ Deploy | ❌ View Only |
-| **DevOps Engineer** | ✅ Full Access | ✅ Full Access | ✅ Full Access | ✅ Full Access |
-| **QA Engineer** | ✅ Test Deploy | ✅ Full Access | ❌ View Only | ❌ No Access |
-| **Security Team** | ✅ Audit Access | ✅ Audit Access | ✅ Audit Access | ✅ Security Config |
-
-### **Daily Operations Workflow**
-
-#### **Morning Standup (9:00 AM)**
-```bash
-# Automated morning reports
-1. Jenkins generates overnight build summary
-2. Cost optimization report (Lambda-generated)
-3. Security scan results compilation
-4. Infrastructure health dashboard update
-
-# Team receives Slack notification:
-"🌅 Daily Jenkins Report:
-✅ 23 successful builds
-❌ 2 failed builds (links provided)
-💰 $12.50 saved overnight (auto-scaling)
-🔒 0 critical security issues"
-```
-
-#### **Deployment Windows**
-
-**Development**: Continuous deployment (24/7)
-- Automatic deployment on merge to `develop` branch
-- No approval required
-- Instant rollback available
-
-**Staging**: Scheduled deployments (Business hours)
-- Deployment at 10 AM, 2 PM, 5 PM
-- QA team approval required
-- Automated test suite execution
-
-**Production**: Controlled deployments (Tuesday/Thursday)
-- Change Advisory Board (CAB) approval
-- Blue-green deployment with health validation
-- Business stakeholder notification
-- 30-minute monitoring window
-
-### **Incident Response Scenarios**
-
-#### **Scenario 1: Production Outage**
-```bash
-# Automated Response (< 5 minutes)
-1. Health check failure detected
-2. Lambda triggers automatic rollback
-3. SNS alerts sent to on-call engineer
-4. Slack incident channel created
-5. Previous stable version restored
-
-# Manual Response (if needed)
-6. DevOps engineer investigates logs
-7. Root cause analysis initiated
-8. Hotfix deployment prepared
-9. Post-incident review scheduled
-```
-
-#### **Scenario 2: Security Vulnerability**
-```bash
-# Immediate Actions (< 30 minutes)
-1. Trivy detects critical CVE
-2. Jenkins pipeline automatically fails
-3. Security team receives alert
-4. Affected environments identified
-5. Emergency patch deployment initiated
-
-# Follow-up Actions (< 24 hours)
-6. Golden AMI updated with patches
-7. All environments refreshed
-8. Compliance documentation updated
-9. Vendor notification (if required)
-```
-
-### **Business Continuity**
-
-#### **Disaster Recovery Testing (Monthly)**
-```bash
-# DR Drill Procedure
-1. Jenkins job: "dr-failover-test"
-2. Simulate primary region failure
-3. Activate DR environment (us-west-2)
-4. Validate all critical pipelines
-5. Test data synchronization
-6. Document RTO/RPO metrics
-7. Failback to primary region
-
-# Success Criteria:
-- RTO: < 30 minutes
-- RPO: < 1 hour
-- 100% pipeline functionality
-- Zero data loss
-```
-
-This enterprise setup supports **50+ developers** across **4 teams** with **99.9% uptime** and **$345/month cost optimization** while maintaining enterprise security and compliance standards.
-
-## 🏗️ Architectural Decision Records (ADRs)
-
-### Strategic Technology Decisions
-
-#### **Decision 1: EC2 vs EKS for Jenkins Deployment**
-
-**Context**: Luuul Solutions needed a reliable CI/CD platform with predictable costs and operational simplicity.
-
-**Decision**: **EC2-based deployment** over Amazon EKS
-
-**Rationale**:
-- **Cost Efficiency**: EC2 saves ~$180/month vs EKS control plane ($0.10/hour = $73/month) + worker nodes
-- **Operational Simplicity**: Client's team familiar with EC2, reducing operational overhead
-- **Jenkins Characteristics**: Stateful workloads with persistent storage better suited for EC2
-- **Resource Predictability**: Jenkins master requires consistent resources, not dynamic scaling
-- **Compliance**: Simpler security model for client's compliance requirements
-
-**Trade-offs Accepted**:
-- Manual scaling vs automatic Kubernetes scaling (mitigated with Auto Scaling Groups)
-- Container orchestration complexity vs VM simplicity (Jenkins handles job orchestration)
-
-#### **Decision 2: Single NAT Gateway vs Multi-AZ NAT**
-
-**Context**: Balance between high availability and cost optimization
-
-**Decision**: **Single NAT Gateway** with automated failover
-
-**Rationale**:
-- **Cost Savings**: $45/month savings vs multi-AZ setup
-- **Risk Mitigation**: Automated recreation via Terraform if failure occurs
-- **Client Priority**: Cost optimization over 99.99% availability for development workloads
-- **Recovery Time**: 5-10 minute recovery acceptable for non-production critical systems
-
-#### **Decision 3: EFS vs EBS for Jenkins Storage**
-
-**Context**: Jenkins requires persistent, shared storage for master and potential agents
-
-**Decision**: **Amazon EFS** over EBS volumes
-
-**Rationale**:
-- **Multi-AZ Access**: Shared storage across availability zones
-- **Automatic Scaling**: No capacity planning required
-- **Backup Integration**: Native AWS Backup support
-- **Cost Efficiency**: Intelligent tiering reduces storage costs by 40%
-- **Disaster Recovery**: Cross-region replication capabilities
-
-#### **Decision 4: Lambda vs Step Functions for Orchestration**
-
-**Context**: Blue-green deployment automation and cost optimization workflows
-
-**Decision**: **AWS Lambda** for orchestration
-
-**Rationale**:
-- **Cost Efficiency**: $0.20/month vs Step Functions $25/month for workflow executions
-- **Simplicity**: Single function vs complex state machine for client's use case
-- **Performance**: Sub-second execution for deployment decisions
-- **Integration**: Native CloudWatch Events integration
-
-#### **Decision 5: Jenkins vs GitHub Actions/GitLab CI**
-
-**Context**: Client needed a CI/CD platform for enterprise development workflows
-
-**Decision**: **Jenkins** over GitHub Actions and GitLab CI
-
-**Rationale**:
-- **Enterprise Control**: Self-hosted solution with complete data sovereignty
-- **Compliance Requirements**: Client's financial data cannot use SaaS CI/CD platforms
-- **Plugin Ecosystem**: 1,800+ plugins vs limited GitHub Actions marketplace
-- **Complex Workflows**: Multi-stage pipelines with conditional logic and approvals
-- **Integration Flexibility**: Existing LDAP, JIRA, and legacy system integrations
-- **Cost at Scale**: $110/month vs $21/user/month (GitHub) for 50+ developers = $1,050/month
-- **Customization**: Full control over build environments and security policies
-
-**Trade-offs Accepted**:
-- Infrastructure maintenance vs managed service simplicity
-- Setup complexity vs GitHub's zero-configuration approach
-- Security responsibility vs vendor-managed security
-
-**Comparison Analysis**:
-```
-| Aspect | Jenkins | GitHub Actions | GitLab CI |
-|--------|---------|----------------|-----------|
-| Cost (50 users) | $110/month | $1,050/month | $950/month |
-| Data Control | ✅ Full | ❌ SaaS | ❌ SaaS |
-| Compliance | ✅ SOC2/PCI | ❌ Limited | ❌ Limited |
-| Customization | ✅ Unlimited | ❌ Restricted | ❌ Restricted |
-| Maintenance | ❌ Self-managed | ✅ Managed | ✅ Managed |
-| Setup Time | ❌ 2-3 days | ✅ Minutes | ✅ Minutes |
-```
-
-#### **Decision 6: Terraform vs CloudFormation**
-
-**Context**: Infrastructure as Code tool selection
-
-**Decision**: **Terraform** over AWS CloudFormation
-
-**Rationale**:
-- **Multi-Cloud Strategy**: Client's future Azure integration requirements
-- **Module Reusability**: 11 reusable modules for different environments
-- **State Management**: Superior state management and drift detection
-- **Community**: Larger ecosystem and provider support
-- **Team Expertise**: Client team's existing Terraform knowledge
-
-### **Risk Assessment & Mitigation**
-
-| Risk | Impact | Probability | Mitigation Strategy |
-|------|--------|-------------|-------------------|
-| Single NAT Gateway failure | Medium | Low | Automated Terraform recreation, 5-10min RTO |
-| EC2 instance failure | High | Medium | Auto Scaling Group with health checks |
-| EFS performance degradation | Medium | Low | Provisioned throughput mode available |
-| Lambda cold starts | Low | Medium | CloudWatch Events keep functions warm |
-| Terraform state corruption | High | Low | S3 versioning + DynamoDB locking |
-
-### **Scalability Roadmap**
-
-**Current Capacity**: Supports 50+ developers, 200+ builds/day
-**6-Month Projection**: Scale to 100+ developers with minimal changes
-**12-Month Vision**: Multi-region active-active deployment
-
-**Scaling Triggers**:
-- **CPU > 70%**: Auto Scaling Group adds instances
-- **Build Queue > 10**: Horizontal scaling with additional agents
-- **Storage > 80%**: EFS automatic scaling + lifecycle policies
-
-## 🏆 Project Achievements
-
-### Technical Excellence
-- **12 Terraform Modules**: Highly modular, reusable infrastructure components
-- **Zero-Downtime Deployments**: 100% uptime during deployments achieved
-- **Security Automation**: GuardDuty, Security Hub, Config, and automated incident response
-- **Enterprise Security**: 6 Config rules, CloudTrail logging, and real-time threat detection
-
-### Cost Optimization Excellence
-- **67% Cost Reduction**: $345/month savings through intelligent automation
-- **Automated Scaling**: Off-hours and weekend scaling saves 129 hours/week
-- **Smart Monitoring**: $105/month savings vs traditional ECS observability stack
-- **Budget Controls**: Proactive alerts at 50% and 80% thresholds
-- **ROI Achievement**: 312% return on implementation investment
-- **Multi-Region DR**: 30-minute RTO achieved vs 4+ hour manual process
-- **Cost Optimization**: 45% infrastructure cost reduction + 87% monitoring savings
-
-### Business Impact
-- **Developer Productivity**: 82% faster deployment process
-- **Risk Reduction**: Automated security compliance and vulnerability management
-- **Business Continuity**: Robust disaster recovery with automated failover
-- **Scalability**: Platform supports 10x team growth without architectural changes
-- **Compliance**: Quarterly security updates ensure continuous compliance
+> **Reference build.** I designed, deployed and debugged this in my own AWS account (dev environment, ~127 resources) to demonstrate how I'd build a CI platform for a client. It is not a client system, and the numbers below are from my own deployment, not a production workload.
 
 ---
 
-**Portfolio Project by**: Abdihakim Said  
-**Role**: Senior DevOps Engineer  
-**Client**: Luuul Solutions  
-**LinkedIn**: [https://www.linkedin.com/in/said-devops/](https://www.linkedin.com/in/said-devops/)  
+## 1. Problem
 
-## 📄 License
+Teams running Jenkins on hand-built EC2 instances end up with snowflake servers: unpatched, impossible to rebuild, and one bad disk away from losing every job config. The goal here is a Jenkins you can **destroy and rebuild from code in minutes** without losing state, with security scanning built into both the image and the infrastructure pipeline.
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+## 2. Architecture
 
-*This is a portfolio demonstration of enterprise DevOps capabilities. Sensitive client information has been anonymized while preserving technical implementation details.*
+```mermaid
+flowchart LR
+  subgraph Build["Golden AMI pipeline (Jenkinsfile-golden-image)"]
+    P[Packer<br/>Ubuntu 22.04 + Java 17 + Jenkins] --> S[Trivy fs · Inspector v2 · tfsec]
+    S --> A[(Versioned AMI<br/>+ manifest.json)]
+    A -. copy .-> DR[(AMI copy<br/>us-west-2)]
+  end
+
+  subgraph Deploy["Infrastructure pipeline (Jenkinsfile-infrastructure)"]
+    SC[tfsec · Checkov · Gitleaks] --> PL[terraform plan<br/>+ plan analysis]
+    PL --> AP{Manual approval<br/>for prod}
+    AP --> TF[terraform apply]
+  end
+
+  A --> TF
+
+  subgraph VPC["VPC 10.1.0.0/16 (us-east-1)"]
+    ALB[ALB :80 / :8080] --> ASG[ASG blue / green<br/>1 active controller]
+    ASG -- NFS + access points --> EFS[(EFS<br/>JENKINS_HOME)]
+    B[Bastion<br/>SSH from admin CIDR] --> ASG
+  end
+
+  TF --> VPC
+  ASG --> CW[CloudWatch dashboards + alarms]
+  ASG --> SEC[GuardDuty · Security Hub · Config · CloudTrail]
+  ASG --> S3[(S3 backups, KMS)]
+```
+
+| Layer | What's in the repo |
+|---|---|
+| Image | `packer/`: Ubuntu 22.04, OpenJDK 17, Jenkins, CIS-inspired hardening (sysctl, sshd, ufw, auditd, fail2ban, CSRF on, CLI off) |
+| Pipelines | `Jenkinsfile-golden-image`, `Jenkinsfile-infrastructure`, `Jenkinsfile-backup` |
+| Terraform | Root module + 11 modules: `vpc`, `security`, `iam`, `efs`, `alb`, `cloudwatch`, `inspector`, `blue-green-deployment`, `cost-optimized-observability`, `cost-optimization`, `security-automation` |
+| Evidence | `packer/manifest.json` (4 AMI builds, Oct–Nov 2025), `docs/troubleshooting.md` |
+
+## 3. Key decisions and trade-offs
+
+- **Immutable controller, mutable state on EFS.** The EC2 instance is replaceable; `JENKINS_HOME` lives on EFS behind access points. Trade-off: EFS latency is higher than local disk for heavy workspaces, so workspaces are a separate access point and could move to local disk on agents.
+- **Golden AMI instead of configuring at boot.** Boot time and drift go down; the price is a rebuild pipeline for every patch. The golden-image pipeline runs quarterly and on demand, and copies the AMI to a second region for recovery.
+- **Scan before build, gate before apply.** tfsec blocks on CRITICAL findings, Checkov and Gitleaks run in parallel, and the plan is parsed (add/change/destroy counts) before a human approves production.
+- **Assume-role deploys.** Terraform runs under a separate deployment role via STS rather than directly as the instance role.
+- **Blue/green at the ASG level.** Two launch templates/ASGs; the active colour is chosen by a Terraform variable and only that ASG is attached to the target group. Simple and predictable, but see limitations.
+- **Stop dev at night.** Scheduled scaling takes the dev controller to zero out of hours. I deliberately did *not* auto-scale the controller down on CPU (commented out in code) because killing a controller mid-build kills the build.
+
+## 4. Known limitations / what I'd do next
+
+I'd rather list these than have a reviewer find them:
+
+- **HTTP only.** The ALB listens on 80/8080 with no certificate. Next: ACM certificate + HTTPS listener, redirect 80→443, close 8080.
+- **Single controller, not HA.** Jenkins does not support two controllers sharing one `JENKINS_HOME`. The ASG should be pinned to `min = max = 1` (self-healing, not HA); scale-out belongs on agents (EC2 Fleet or Kubernetes plugin).
+- **Blue/green switch is Terraform-driven.** The Lambda "orchestrator" reports health; it does not move target-group traffic. Next: make it re-register targets, or use weighted target groups.
+- **EFS provisioned throughput (100 MiB/s) dominates cost** at roughly $600/month. Elastic or bursting throughput would cut this by an order of magnitude for a dev workload.
+- **The EFS file-system policy is too broad** (`Principal: *`). Next: restrict it to the Jenkins instance role and enforce TLS.
+- **The deployment role is admin-equivalent** (it can create roles and attach policies). Next: permissions boundary + scoped resource ARNs.
+- **The backup script encrypts with `kms encrypt` directly**, which only works up to 4 KB. Next: rely on S3 SSE-KMS or envelope encryption.
+- **The cost-optimizer Lambda uses simulated queue metrics**, and the security responder matches only exact GuardDuty severities. Both are prototypes, not production automation.
+- **The Jenkins version is not pinned** (installed from the stable apt repo). Next: pin the package and plugins via `plugins.txt` + JCasC.
+- **Only `environments/dev` exists.** Several root variables (NAT count, ASG sizes) are declared but not yet wired through.
+
+## 5. Evidence
+
+- `packer/manifest.json`: four real AMI builds (17 Oct – 4 Nov 2025) with source AMI, Java and Jenkins versions.
+- [`docs/troubleshooting.md`](docs/troubleshooting.md): three real problems I hit and fixed:
+  1. An AMI-selection ternary that resolved to `null`, so instances launched from different AMIs.
+  2. Hardening that purged `rpcbind`/`nfs-common` and silently broke EFS mounts.
+  3. A Packer validation step failing on a missing command.
+- Pipelines: security scanning, plan analysis and approval gates are implemented in the Jenkinsfiles, not just described.
+
+## 6. Run it yourself
+
+Prerequisites: Terraform ≥ 1.5, Packer, AWS CLI, and an S3 bucket + DynamoDB table for state.
+
+```bash
+# 1. Build the golden AMI
+cd packer && packer init . && packer build jenkins-ami.pkr.hcl && cd ..
+
+# 2. Configure remote state
+cp backend.hcl.example backend.hcl        # set your bucket name
+terraform init -backend-config=backend.hcl
+
+# 3. Set your admin IP in environments/dev/terraform.tfvars (admin_cidr_blocks), then
+terraform plan  -var-file=environments/dev/terraform.tfvars
+terraform apply -var-file=environments/dev/terraform.tfvars
+```
+
+**Cost (us-east-1, rough, as coded):**
+
+| Item | Approx. monthly |
+|---|---|
+| EFS provisioned throughput | ~$600 (see limitations) |
+| NAT gateway + ALB | ~$50 |
+| t3.small controller + bastion | ~$20 |
+| GuardDuty / Config / Security Hub | usage-based |
+
+With EFS switched to elastic throughput, expect roughly $80–100/month for a dev environment. **Run `terraform destroy` when you're done.**
+
+---
+
+**Abdihakim Said**, AWS Solutions Architect · CKA. I help teams build secure, rebuildable CI/CD and cloud platforms. Contact details are on my [GitHub profile](https://github.com/abdihakim-said).

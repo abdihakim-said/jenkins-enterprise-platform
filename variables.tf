@@ -5,7 +5,7 @@
 variable "alert_email" {
   description = "Email address for alerts and notifications"
   type        = string
-  default     = "said.devops123@gmail.com"
+  default     = ""
 }
 
 variable "aws_region" {
@@ -149,4 +149,9 @@ variable "jenkins_admin_email" {
   description = "Jenkins admin email"
   type        = string
   default     = "admin@company.com"
+}
+
+variable "admin_cidr_blocks" {
+  description = "CIDR blocks allowed to SSH to the bastion host (e.g. your public IP /32)"
+  type        = list(string)
 }

@@ -40,7 +40,7 @@ pipeline {
         BACKUP_SCRIPT = '/opt/jenkins/scripts/backup/jenkins-backup.sh'
         S3_BUCKET = "jenkins-enterprise-platform-backup-${params.ENVIRONMENT}"
         SLACK_WEBHOOK = credentials('slack-webhook-url')
-        NOTIFICATION_EMAIL = 'said.devops123@gmail.com'
+        NOTIFICATION_EMAIL = "${env.JENKINS_NOTIFICATION_EMAIL ?: ''}"
         RETENTION_DAYS = '30'
         COMPRESSION_LEVEL = '6'
         ENCRYPTION_ENABLED = 'true'

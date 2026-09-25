@@ -68,3 +68,5 @@ test-iam-permissions.sh
 
 # Cleanup scripts (temporary)
 cleanup-unnecessary-files*.sh
+
+backend.hcl

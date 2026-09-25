@@ -19,3 +19,13 @@ variable "alert_email" {
   type        = string
   default     = ""
 }
+
+variable "efs_file_system_id" {
+  description = "ID of the Jenkins EFS file system to monitor"
+  type        = string
+}
+
+variable "alb_name" {
+  description = "Name of the Jenkins Application Load Balancer to monitor"
+  type        = string
+}

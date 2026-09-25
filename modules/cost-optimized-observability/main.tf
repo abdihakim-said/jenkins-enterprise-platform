@@ -19,7 +19,7 @@ resource "aws_cloudwatch_dashboard" "jenkins_observability" {
           metrics = [
             ["AWS/EC2", "CPUUtilization", "AutoScalingGroupName", "jenkins-enterprise-platform-dev-blue-asg"],
             [".", "StatusCheckFailed", ".", "."],
-            ["AWS/ApplicationELB", "HealthyHostCount", "TargetGroup", "dev-jenkins-tg", "LoadBalancer", data.aws_lb.jenkins.arn_suffix],
+            ["AWS/ApplicationELB", "HealthyHostCount", "TargetGroup", "${var.environment}-jenkins-tg", "LoadBalancer", data.aws_lb.jenkins.arn_suffix],
             [".", "UnHealthyHostCount", ".", ".", ".", "."]
           ]
           view    = "timeSeries"
@@ -270,9 +270,9 @@ resource "aws_sns_topic_subscription" "email_alerts" {
 
 # Data sources for existing resources
 data "aws_lb" "jenkins" {
-  name = "dev-jenkins-alb"
+  name = var.alb_name
 }
 
 data "aws_efs_file_system" "jenkins" {
-  file_system_id = "fs-0a1c496937c7252d3"
+  file_system_id = var.efs_file_system_id
 }

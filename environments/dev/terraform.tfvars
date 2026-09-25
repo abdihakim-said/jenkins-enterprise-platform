@@ -27,3 +27,6 @@ common_tags = {
   ManagedBy   = "terraform"
   CostCenter  = "development"
 }
+
+# Bastion SSH access - set to your own public IP
+admin_cidr_blocks = ["203.0.113.10/32"]
