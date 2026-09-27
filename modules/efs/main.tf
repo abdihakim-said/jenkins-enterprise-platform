@@ -5,10 +5,11 @@
 resource "aws_efs_file_system" "jenkins" {
   creation_token = "${var.environment}-${replace(lower(var.project_name), " ", "-")}-efs"
 
-  performance_mode                = "generalPurpose"
-  throughput_mode                 = "provisioned"
-  provisioned_throughput_in_mibps = 100
-  encrypted                       = true
+  performance_mode = "generalPurpose"
+  # Elastic throughput: pay per GB transferred instead of a fixed 100 MiB/s
+  # (~$600/month provisioned). Jenkins controller I/O is bursty and small.
+  throughput_mode = "elastic"
+  encrypted       = true
 
   lifecycle_policy {
     transition_to_ia = "AFTER_30_DAYS"
@@ -92,6 +93,10 @@ resource "aws_efs_backup_policy" "jenkins" {
 }
 
 # EFS File System Policy
+# Instances mount over plain NFS (no IAM auth), so the NFS client is an
+# anonymous principal and a role-scoped Principal would block the mount.
+# Instead: only NFS client actions (no management API), only through this
+# VPC's mount targets (gated by the EFS security group).
 resource "aws_efs_file_system_policy" "jenkins" {
   file_system_id = aws_efs_file_system.jenkins.id
 
@@ -99,13 +104,22 @@ resource "aws_efs_file_system_policy" "jenkins" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "AllowRootAccess"
+        Sid    = "ClientAccessViaMountTargetsOnly"
         Effect = "Allow"
         Principal = {
           AWS = "*"
         }
-        Action   = "elasticfilesystem:*"
+        Action = [
+          "elasticfilesystem:ClientMount",
+          "elasticfilesystem:ClientWrite",
+          "elasticfilesystem:ClientRootAccess"
+        ]
         Resource = aws_efs_file_system.jenkins.arn
+        Condition = {
+          Bool = {
+            "elasticfilesystem:AccessedViaMountTarget" = "true"
+          }
+        }
       }
     ]
   })

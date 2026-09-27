@@ -58,13 +58,21 @@ flowchart LR
 
 ## 4. Known limitations / what I'd do next
 
+**Fixed since the first deploy**
+
+- **EFS throughput: provisioned → elastic.** The fixed 100 MiB/s cost about $600/month for a controller whose I/O is small and bursty. Elastic throughput bills per GB transferred instead. (`modules/efs/main.tf`)
+- **EFS file-system policy no longer grants `elasticfilesystem:*` to `Principal: *`.** It now allows only `ClientMount`, `ClientWrite` and `ClientRootAccess`, and only when the request comes through a mount target (`elasticfilesystem:AccessedViaMountTarget`). Management actions such as deleting the file system or changing its policy now rely on IAM alone. (`modules/efs/main.tf`)
+
+Both changes pass `terraform validate`; I haven't re-applied them to a live environment yet.
+
+**Still open**
+
 I'd rather list these than have a reviewer find them:
 
 - **HTTP only.** The ALB listens on 80/8080 with no certificate. Next: ACM certificate + HTTPS listener, redirect 80→443, close 8080.
 - **Single controller, not HA.** Jenkins does not support two controllers sharing one `JENKINS_HOME`. The ASG should be pinned to `min = max = 1` (self-healing, not HA); scale-out belongs on agents (EC2 Fleet or Kubernetes plugin).
 - **Blue/green switch is Terraform-driven.** The Lambda "orchestrator" reports health; it does not move target-group traffic. Next: make it re-register targets, or use weighted target groups.
-- **EFS provisioned throughput (100 MiB/s) dominates cost** at roughly $600/month. Elastic or bursting throughput would cut this by an order of magnitude for a dev workload.
-- **The EFS file-system policy is too broad** (`Principal: *`). Next: restrict it to the Jenkins instance role and enforce TLS.
+- **EFS is mounted over plain NFS, without TLS or IAM auth.** The file-system policy is now limited to client actions through the VPC's mount targets (see *Fixed* above), but it still can't name the Jenkins role, because an unauthenticated NFS client is anonymous. Next: bake `amazon-efs-utils` into the golden AMI, mount with `-o tls,iam,accesspoint=…` via the `jenkins_home` access point, then scope the policy to the instance role and deny `aws:SecureTransport = false`.
 - **The deployment role is admin-equivalent** (it can create roles and attach policies). Next: permissions boundary + scoped resource ARNs.
 - **The backup script encrypts with `kms encrypt` directly**, which only works up to 4 KB. Next: rely on S3 SSE-KMS or envelope encryption.
 - **The cost-optimizer Lambda uses simulated queue metrics**, and the security responder matches only exact GuardDuty severities. Both are prototypes, not production automation.
@@ -101,12 +109,12 @@ terraform apply -var-file=environments/dev/terraform.tfvars
 
 | Item | Approx. monthly |
 |---|---|
-| EFS provisioned throughput | ~$600 (see limitations) |
+| EFS (elastic throughput, dev usage) | ~$5–15 |
 | NAT gateway + ALB | ~$50 |
 | t3.small controller + bastion | ~$20 |
 | GuardDuty / Config / Security Hub | usage-based |
 
-With EFS switched to elastic throughput, expect roughly $80–100/month for a dev environment. **Run `terraform destroy` when you're done.**
+That's roughly $80–100/month for a dev environment (it was ~$600 more with the original provisioned EFS throughput). **Run `terraform destroy` when you're done.**
 
 ---
 
