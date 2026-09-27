@@ -110,4 +110,4 @@ With EFS switched to elastic throughput, expect roughly $80–100/month for a de
 
 ---
 
-**Abdihakim Said**, AWS Solutions Architect · CKA. I help teams build secure, rebuildable CI/CD and cloud platforms. Contact details are on my [GitHub profile](https://github.com/abdihakim-said).
+**Abdihakim Said**, AWS Solutions Architect Associate · CKA. I help teams build secure, rebuildable CI/CD and cloud platforms. Contact details are on my [GitHub profile](https://github.com/abdihakim-said).
