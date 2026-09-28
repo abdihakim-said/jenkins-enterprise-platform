@@ -12,7 +12,9 @@ Teams running Jenkins on hand-built EC2 instances end up with snowflake servers:
 
 ## 2. Architecture
 
-![Architecture: golden-AMI pipeline, infrastructure pipeline, runtime, operations](docs/images/architecture.png)
+![Architecture walkthrough: golden-AMI pipeline, infrastructure pipeline, disposable runtime, operations](docs/images/architecture-flow.gif)
+
+<sub>Static diagram: [docs/images/architecture.png](docs/images/architecture.png)</sub>
 
 Pipeline detail:
 
