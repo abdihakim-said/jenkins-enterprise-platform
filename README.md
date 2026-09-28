@@ -2,7 +2,7 @@
 
 A self-hosted Jenkins controller on AWS, built from a hardened Packer golden AMI, deployed by Terraform, with Jenkins state on EFS so the instance itself is disposable.
 
-> **Reference build.** I designed, deployed and debugged this in my own AWS account (dev environment, ~127 resources) to demonstrate how I'd build a CI platform for a client. It is not a client system, and the numbers below are from my own deployment, not a production workload.
+> **Published in anonymised form.** Employer and client details, data and credentials have been removed. This public version was deployed and tested in a dev environment (~127 resources), and the figures below come from that deployment.
 
 ---
 
