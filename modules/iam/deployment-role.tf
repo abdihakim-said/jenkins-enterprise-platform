@@ -60,7 +60,7 @@ resource "aws_iam_role_policy" "deployment" {
           "ec2:DescribeLaunchTemplates",
           "ec2:DescribeLaunchTemplateVersions",
           "ec2:DescribeVolumes",
-          
+
           # VPC and Networking
           "ec2:CreateVpc",
           "ec2:DeleteVpc",
@@ -84,7 +84,7 @@ resource "aws_iam_role_policy" "deployment" {
           "ec2:DeleteVpcEndpoint",
           "ec2:CreateFlowLogs",
           "ec2:DeleteFlowLogs",
-          
+
           # Security Groups
           "ec2:CreateSecurityGroup",
           "ec2:DeleteSecurityGroup",
@@ -92,7 +92,7 @@ resource "aws_iam_role_policy" "deployment" {
           "ec2:AuthorizeSecurityGroupEgress",
           "ec2:RevokeSecurityGroupIngress",
           "ec2:RevokeSecurityGroupEgress",
-          
+
           # IAM for service roles
           "iam:GetRole",
           "iam:GetPolicy",
@@ -124,7 +124,7 @@ resource "aws_iam_role_policy" "deployment" {
           "iam:CreatePolicyVersion",
           "iam:DeletePolicyVersion",
           "iam:SetDefaultPolicyVersion",
-          
+
           # S3 Buckets
           "s3:GetBucketPolicy",
           "s3:GetBucketVersioning",
@@ -145,7 +145,7 @@ resource "aws_iam_role_policy" "deployment" {
           "s3:DeleteBucketLifecycle",
           "s3:PutLifecycleConfiguration",
           "s3:PutBucketPublicAccessBlock",
-          
+
           # Lambda Functions
           "lambda:GetFunction",
           "lambda:GetPolicy",
@@ -158,7 +158,7 @@ resource "aws_iam_role_policy" "deployment" {
           "lambda:UpdateFunctionConfiguration",
           "lambda:AddPermission",
           "lambda:RemovePermission",
-          
+
           # CloudWatch and Logging
           "logs:CreateLogGroup",
           "logs:DeleteLogGroup",
@@ -175,7 +175,7 @@ resource "aws_iam_role_policy" "deployment" {
           "cloudwatch:DescribeAlarms",
           "cloudwatch:ListMetrics",
           "cloudwatch:ListTagsForResource",
-          
+
           # EventBridge
           "events:PutRule",
           "events:DeleteRule",
@@ -186,7 +186,7 @@ resource "aws_iam_role_policy" "deployment" {
           "events:ListTagsForResource",
           "events:TagResource",
           "events:UntagResource",
-          
+
           # SNS
           "sns:GetTopicAttributes",
           "sns:GetSubscriptionAttributes",
@@ -197,7 +197,7 @@ resource "aws_iam_role_policy" "deployment" {
           "sns:Unsubscribe",
           "sns:SetTopicAttributes",
           "sns:TagResource",
-          
+
           # Security Services
           "guardduty:GetDetector",
           "guardduty:CreateDetector",
@@ -216,11 +216,11 @@ resource "aws_iam_role_policy" "deployment" {
           "config:PutConfigRule",
           "config:DeleteConfigRule",
           "config:TagResource",
-          
+
           # Budgets
           "budgets:ViewBudget",
           "budgets:ListTagsForResource",
-          
+
           # CloudTrail
           "cloudtrail:DescribeTrails",
           "cloudtrail:GetTrailStatus",
@@ -230,7 +230,7 @@ resource "aws_iam_role_policy" "deployment" {
           "cloudtrail:StartLogging",
           "cloudtrail:StopLogging",
           "cloudtrail:PutEventSelectors",
-          
+
           # EFS
           "elasticfilesystem:DescribeFileSystems",
           "elasticfilesystem:DescribeAccessPoints",
@@ -248,7 +248,7 @@ resource "aws_iam_role_policy" "deployment" {
           "elasticfilesystem:ListTagsForResource",
           "elasticfilesystem:PutBackupPolicy",
           "elasticfilesystem:PutLifecycleConfiguration",
-          
+
           # Auto Scaling
           "autoscaling:DescribeAutoScalingGroups",
           "autoscaling:DescribeAutoScalingInstances",
@@ -265,7 +265,7 @@ resource "aws_iam_role_policy" "deployment" {
           "autoscaling:UpdateAutoScalingGroup",
           "autoscaling:SetDesiredCapacity",
           "autoscaling:TerminateInstanceInAutoScalingGroup",
-          
+
           # Load Balancer
           "elasticloadbalancing:DescribeLoadBalancers",
           "elasticloadbalancing:DescribeLoadBalancerAttributes",
@@ -287,7 +287,7 @@ resource "aws_iam_role_policy" "deployment" {
           "elasticloadbalancing:ModifyTargetGroupAttributes",
           "elasticloadbalancing:AddTags",
           "elasticloadbalancing:RemoveTags",
-          
+
           # SSM Parameters
           "ssm:GetParameter",
           "ssm:GetParameters",
@@ -297,11 +297,11 @@ resource "aws_iam_role_policy" "deployment" {
           "ssm:AddTagsToResource",
           "ssm:RemoveTagsFromResource",
           "ssm:ListTagsForResource",
-          
+
           # Tagging
           "ec2:CreateTags",
           "ec2:DeleteTags",
-          
+
           # KMS for encryption
           "kms:GetKeyPolicy",
           "kms:GetKeyRotationStatus",

@@ -20,7 +20,7 @@ locals {
 resource "aws_guardduty_detector" "main" {
   enable                       = true
   finding_publishing_frequency = "FIFTEEN_MINUTES"
-  
+
   datasources {
     s3_logs {
       enable = true
@@ -97,7 +97,7 @@ resource "aws_s3_bucket_policy" "cloudtrail" {
         Resource = "${aws_s3_bucket.cloudtrail.arn}/*"
         Condition = {
           StringEquals = {
-            "s3:x-amz-acl" = "bucket-owner-full-control"
+            "s3:x-amz-acl"  = "bucket-owner-full-control"
             "AWS:SourceArn" = "arn:aws:cloudtrail:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:trail/dev-jenkins-cloudtrail"
           }
         }
@@ -210,7 +210,7 @@ resource "random_string" "bucket_suffix" {
 data "archive_file" "security_responder" {
   type        = "zip"
   output_path = "${path.module}/security_responder.zip"
-  
+
   source {
     content  = file("${path.module}/security_responder.py")
     filename = "security_responder.py"

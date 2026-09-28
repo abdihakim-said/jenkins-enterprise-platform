@@ -1,5 +1,7 @@
 # Jenkins on AWS: Golden-AMI Factory + Terraform Platform
 
+[![validate](https://github.com/abdihakim-said/jenkins-enterprise-platform/actions/workflows/validate.yml/badge.svg)](https://github.com/abdihakim-said/jenkins-enterprise-platform/actions/workflows/validate.yml)
+
 A self-hosted Jenkins controller on AWS, built from a hardened Packer golden AMI, deployed by Terraform, with Jenkins state on EFS so the instance itself is disposable.
 
 > **Published in anonymised form.** Employer and client details, data and credentials have been removed. This public version was deployed and tested in a dev environment (~127 resources), and the figures below come from that deployment.
@@ -93,6 +95,7 @@ I'd rather list these than have a reviewer find them:
   2. Hardening that purged `rpcbind`/`nfs-common` and silently broke EFS mounts.
   3. A Packer validation step failing on a missing command.
 - Pipelines: security scanning, plan analysis and approval gates are implemented in the Jenkinsfiles, not just described.
+- CI: a GitHub Actions `validate` workflow runs `terraform fmt`/`validate` and Packer `fmt`/`validate` on every push, with no AWS credentials.
 
 ## 6. Run it yourself
 

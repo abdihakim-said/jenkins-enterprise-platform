@@ -43,11 +43,11 @@ resource "aws_config_config_rule" "iam_password_policy" {
   input_parameters = jsonencode({
     RequireUppercaseCharacters = "true"
     RequireLowercaseCharacters = "true"
-    RequireSymbols            = "true"
-    RequireNumbers            = "true"
-    MinimumPasswordLength     = "14"
-    PasswordReusePrevention   = "24"
-    MaxPasswordAge            = "90"
+    RequireSymbols             = "true"
+    RequireNumbers             = "true"
+    MinimumPasswordLength      = "14"
+    PasswordReusePrevention    = "24"
+    MaxPasswordAge             = "90"
   })
 }
 
