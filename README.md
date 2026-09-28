@@ -12,6 +12,10 @@ Teams running Jenkins on hand-built EC2 instances end up with snowflake servers:
 
 ## 2. Architecture
 
+![Architecture: golden-AMI pipeline, infrastructure pipeline, runtime, operations](docs/images/architecture.png)
+
+Pipeline detail:
+
 ```mermaid
 flowchart LR
   subgraph Build["Golden AMI pipeline (Jenkinsfile-golden-image)"]
